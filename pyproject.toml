@@ -1,0 +1,47 @@
+[project]
+name = "snuffml"
+version = "0.1.0"
+description = "Predict Survivor (US) winners from the edit: confessionals + edgic ratings"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2",
+    "pyarrow>=16",
+    "requests>=2.32",
+    "scikit-learn>=1.5",
+    "torch>=2.4",
+    "typer>=0.12",
+    "rich>=13",
+    "lxml>=5",
+    "beautifulsoup4>=4.12",
+    "matplotlib>=3.9",
+    "shap>=0.46",
+    "joblib>=1.4",
+    "tabulate>=0.10.0",
+]
+
+[project.optional-dependencies]
+reddit = ["praw>=7.7"]
+
+[project.scripts]
+snuffml = "snuffml.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/snuffml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: tests that hit real cached data (deselect with '-m \"not slow\"')"]
