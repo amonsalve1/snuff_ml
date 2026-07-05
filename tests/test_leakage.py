@@ -63,3 +63,8 @@ def test_manifest_contains_no_label_columns(features_df):
     assert not overlap, f"label columns leaked into features: {overlap}"
 
 
+def test_training_frame_uses_only_alive_rows(features_df):
+    from snuffml.models import sklearn_baseline as skb
+
+    rows = skb.training_frame(features_df)
+    assert rows["in_game"].all()
