@@ -2,7 +2,8 @@
 
 One example = one (season, t) prefix, so episode prefixes multiply the data
 (~46 seasons turns into ~600 examples). The masked softmax bakes in
-one-winner-per-season.
+one-winner-per-season. Kept deliberately small (hidden 48, one layer, dropout,
+noise, seed averaging) because there just isn't much data.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from snuffml.models.sklearn_baseline import training_frame
 
 HIDDEN = 48
 DROPOUT = 0.3
+NOISE_SIGMA = 0.05
 LR = 1e-3
 WEIGHT_DECAY = 1e-2
 MAX_EPOCHS = 200
@@ -131,18 +133,21 @@ class GRUWinnerModel:
     feature_cols: list[str]
     mean: np.ndarray
     std: np.ndarray
-    state_dict: dict
+    state_dicts: list[dict]  # one per seed, averaged at predict time
     trained_through: int
 
-    def _model(self) -> PlayerEncoder:
-        m = PlayerEncoder(len(self.feature_cols) + 2)
-        m.load_state_dict(self.state_dict)
-        m.eval()
-        return m
+    def _models(self) -> list[PlayerEncoder]:
+        models = []
+        for sd in self.state_dicts:
+            m = PlayerEncoder(len(self.feature_cols) + 2)
+            m.load_state_dict(sd)
+            m.eval()
+            models.append(m)
+        return models
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         tensors = SeasonTensors(df, self.feature_cols, self.mean, self.std)
-        model = self._model()
+        models = self._models()
         out = []
         for season, data in tensors.seasons.items():
             X_full = torch.from_numpy(data["X"])
@@ -152,7 +157,12 @@ class GRUWinnerModel:
                     continue
                 X = X_full[:, : ti + 1, :].unsqueeze(0)
                 with torch.no_grad():
-                    probs = F.softmax(model(X, alive.unsqueeze(0)), dim=-1).squeeze(0)
+                    probs = torch.stack(
+                        [
+                            F.softmax(m(X, alive.unsqueeze(0)), dim=-1).squeeze(0)
+                            for m in models
+                        ]
+                    ).mean(0)
                 alive_idx = np.flatnonzero(data["alive"][:, ti])
                 for pi in alive_idx:
                     out.append(
@@ -176,7 +186,7 @@ class GRUWinnerModel:
                 "feature_cols": self.feature_cols,
                 "mean": self.mean,
                 "std": self.std,
-                "state_dict": self.state_dict,
+                "state_dicts": self.state_dicts,
                 "trained_through": self.trained_through,
             },
             path,
@@ -188,11 +198,13 @@ class GRUWinnerModel:
         return GRUWinnerModel(**blob)
 
 
-def _fit(
+def _fit_one_seed(
+    seed: int,
     tensors: SeasonTensors,
     train_seasons: list[int],
     val_seasons: list[int],
 ) -> dict:
+    torch.manual_seed(seed)
     model = PlayerEncoder(next(iter(tensors.seasons.values()))["X"].shape[2])
     opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     train_dl = DataLoader(
@@ -211,6 +223,7 @@ def _fit(
     for _epoch in range(MAX_EPOCHS):
         model.train()
         for X, alive, winner in train_dl:
+            X = X + torch.randn_like(X) * NOISE_SIGMA
             loss = F.cross_entropy(model(X, alive), winner)
             opt.zero_grad()
             loss.backward()
@@ -238,6 +251,7 @@ def train(
     df: pd.DataFrame,
     *,
     through_season: int | None = None,
+    seeds: int = 5,
     val_fraction: float = 0.15,
 ) -> GRUWinnerModel:
     feature_cols = build_mod.feature_columns(df)
@@ -260,17 +274,19 @@ def train(
     val_seasons = list(rng.choice(seasons, size=n_val, replace=False))
     train_seasons = [s for s in seasons if s not in val_seasons]
 
-    state_dict = _fit(tensors, train_seasons, val_seasons)
+    state_dicts = [
+        _fit_one_seed(seed, tensors, train_seasons, val_seasons) for seed in range(seeds)
+    ]
     return GRUWinnerModel(
         feature_cols=feature_cols,
         mean=mean,
         std=std,
-        state_dict=state_dict,
+        state_dicts=state_dicts,
         trained_through=int(max(seasons)),
     )
 
 
-def cross_val_predictions(df: pd.DataFrame, *, n_splits: int = 5) -> pd.DataFrame:
+def cross_val_predictions(df: pd.DataFrame, *, n_splits: int = 5, seeds: int = 3) -> pd.DataFrame:
     """season-grouped oof preds, same harness as the sklearn side"""
     rows = training_frame(df)
     seasons = np.array(sorted(rows["season"].unique()))
@@ -280,7 +296,7 @@ def cross_val_predictions(df: pd.DataFrame, *, n_splits: int = 5) -> pd.DataFram
     preds = []
     for fold in folds:
         train_df = df[df["season"].isin(set(rows["season"].unique()) - set(fold))]
-        m = train(train_df)
+        m = train(train_df, seeds=seeds)
         test_df = df[df["season"].isin(fold)]
         preds.append(m.predict(test_df))
     return pd.concat(preds, ignore_index=True)
