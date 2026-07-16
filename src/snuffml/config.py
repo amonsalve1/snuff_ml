@@ -15,6 +15,8 @@ PROCESSED_DIR = DATA_DIR / "processed"
 MODELS_DIR = PROJECT_ROOT / "models"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
+# the repo json is always current, the csv mirror lags (stale since ~s47)
+SURVIVOR_GITHUB_JSON = "https://raw.githubusercontent.com/doehm/survivoR/master/dev/json/{table}.json"
 SURVIVOR2PY_BASE = "https://stilesdata.com/survivor/survivor2py/processed/csv/{table}.csv"
 
 # tables pulled from the survivoR2py mirror. screen_time is deprecated upstream, don't add it back

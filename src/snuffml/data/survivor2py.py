@@ -1,8 +1,10 @@
-"""Pulls csvs from the survivoR2py mirror (github.com/stiles/survivoR2py),
-a daily export of the survivoR R package. US seasons only, cached under
-data/raw/survivor2py. Two gotchas: confessional counts are averaged across
-community counters so they're noisy, and the newest season in the mirror can
-be all-NaN placeholder rows until it actually airs.
+"""Pulls the survivoR data. US seasons only, cached under data/raw/survivor2py.
+
+Primary source is the json in the survivoR repo itself (doehm/survivoR
+dev/json), which is always current. The survivoR2py csv mirror is the
+fallback, it went stale around s47. Two gotchas: confessional counts are
+averaged across community counters so they're noisy, and the newest season
+can be all-NaN placeholder rows until it actually airs.
 """
 
 from __future__ import annotations
@@ -116,17 +118,27 @@ def fetch_table(table: str, *, force: bool = False, max_age_hours: float = 24.0)
         if age_hours < max_age_hours:
             return path
 
-    url = config.SURVIVOR2PY_BASE.format(table=table)
-    resp = requests.get(url, timeout=60)
-    resp.raise_for_status()
-    path.write_bytes(resp.content)
+    # repo json first, csv mirror if that fails
+    content = None
+    url = config.SURVIVOR_GITHUB_JSON.format(table=table)
+    try:
+        resp = requests.get(url, timeout=60)
+        resp.raise_for_status()
+        pd.DataFrame(resp.json()).to_csv(path, index=False)
+        content = resp.content
+    except (requests.RequestException, ValueError):
+        url = config.SURVIVOR2PY_BASE.format(table=table)
+        resp = requests.get(url, timeout=60)
+        resp.raise_for_status()
+        path.write_bytes(resp.content)
+        content = resp.content
     meta_path.write_text(
         json.dumps(
             {
                 "url": url,
                 "fetched_at_unix": time.time(),
-                "sha256": hashlib.sha256(resp.content).hexdigest(),
-                "bytes": len(resp.content),
+                "sha256": hashlib.sha256(content).hexdigest(),
+                "bytes": len(content),
             },
             indent=2,
         )
