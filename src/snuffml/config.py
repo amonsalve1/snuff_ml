@@ -60,6 +60,10 @@ CASTAWAY_ALIASES: dict[tuple[int, str], str] = {
     (31, "Tasha Fox"): "US0419",  # Latasha
     (31, "Woo Hwang"): "US0423",  # Yung
     (37, "Daniel"): "US0546",  # Inside Survivor calls Dan Rengering "Daniel"
+    (44, "Jamie"): "US0646",  # r/Edgic sheet spelling, survivoR has Jaime
+    (45, "Brando M."): "US0664",  # Brando Meyer
+    (45, "Brandon D."): "US0665",  # Brandon Donlon
+    (45, "Janani"): "US0670",  # goes by J. Maya in survivoR
 }
 
 

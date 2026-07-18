@@ -110,3 +110,22 @@ def test_unresolvable_name_raises(raw_dir):
     )
     with pytest.raises(ValueError, match="cannot resolve castaway"):
         edgic_data.build(scraped=frame, fetch=False)
+
+
+def test_redgic_sheet_grid_parsing():
+    import pandas as pd
+
+    from snuffml.data.edgic_scrapers import redgic_sheets
+
+    grid = pd.DataFrame(
+        {
+            "Players": ["Alice", "Bob", "Key:"],
+            "Ep 1": ["CP4", "OTTNN2", "green = good"],
+            "Ep 2": ["CP,M4", "", None],  # s44-style malformed cell, blank after boot
+        }
+    )
+    out = redgic_sheets._grid_to_records(grid, 44, "test-url", contemporaneous=True)
+    assert len(out) == 3  # key row and blanks skipped, malformed cell recovered
+    row = out[(out["castaway"] == "Alice") & (out["episode"] == 2)].iloc[0]
+    assert (row["rating"], row["tone"], row["visibility"]) == ("CP", "M", 4)
+    assert out["contemporaneous"].all()

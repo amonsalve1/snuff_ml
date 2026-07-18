@@ -33,22 +33,36 @@ def build(fetch_data: bool = typer.Option(True, help="Fetch missing tables")) ->
 
 @app.command("build-edgic")
 def build_edgic(
-    seasons: str = typer.Option(None, help="Comma-separated seasons to scrape from Inside Survivor"),
+    seasons: str = typer.Option(None, help="Comma-separated seasons to scrape"),
     no_scrape: bool = typer.Option(False, "--no-scrape", help="Only rebuild from manual CSVs"),
 ) -> None:
-    """Scrape/assemble edgic ratings into data/interim/edgic.parquet."""
+    """Scrape/assemble edgic ratings into data/interim/edgic.parquet.
+
+    Seasons through 39 come from Inside Survivor, 41+ from the r/Edgic sheets.
+    Already-scraped seasons are kept unless you re-scrape them.
+    """
     import pandas as pd
 
     from snuffml.data import edgic as edgic_data
 
     scraped = None
     if seasons and not no_scrape:
-        from snuffml.data.edgic_scrapers import inside_survivor
+        from snuffml.data.edgic_scrapers import inside_survivor, redgic_sheets
 
+        wanted = [int(x) for x in seasons.split(",")]
         frames = []
-        for s in [int(x) for x in seasons.split(",")]:
-            console.print(f"scraping Inside Survivor edgic for season {s}")
-            frames.append(inside_survivor.scrape_season(s))
+        for s in wanted:
+            source = redgic_sheets if s >= 41 else inside_survivor
+            console.print(f"scraping edgic for season {s} ({source.__name__.split('.')[-1]})")
+            frames.append(source.scrape_season(s))
+        # keep whatever was scraped before for seasons not touched this run
+        try:
+            existing = edgic_data.load()
+            keep = existing[~existing["season"].isin(wanted) & (existing["source"] != "manual")]
+            if len(keep):
+                frames.append(keep)
+        except FileNotFoundError:
+            pass
         scraped = pd.concat(frames, ignore_index=True)
     out = edgic_data.build(scraped=scraped)
     n_contemp = int(out["contemporaneous"].sum()) if len(out) else 0
