@@ -25,7 +25,14 @@ EDIT_FEATURES = [
     "is_female",
     "female_x_share_cum",
     "new_era_x_share_cum",
+    "zero_any",
+    "zero_any_x_new",
 ]
+
+# computed but not in the default model set: the raw zero-conf count helps
+# finale ranking but wrecks mid-season calibration, and tribe share tested
+# neutral in cv. kept as columns for the study.
+EXTRA_COLUMNS = ["zero_conf_eps", "tribe_share_ep", "tribe_share_cum"]
 
 
 def _expanding_slope(df: pd.DataFrame, group_keys: list[str], x: str, y: str) -> pd.Series:
@@ -100,7 +107,31 @@ def add_edit_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFram
 
     df["is_female"] = (df["gender"] == "Female").astype(float)
     df["female_x_share_cum"] = df["is_female"] * df["conf_share_cum"]
-    df["new_era_x_share_cum"] = (df["era"] == "new").astype(float) * df["conf_share_cum"]
+    new_era = (df["era"] == "new").astype(float)
+    df["new_era_x_share_cum"] = new_era * df["conf_share_cum"]
+
+    # episodes where you were in the game but got zero confessionals. in the
+    # new era winners basically never have one (1 of 10 through s50), in the
+    # old era it just tracked whether your tribe went to tribal, hence the era
+    # interaction. the binary beat the raw count in cv (the count punishes
+    # people too hard mid-season), count kept as a column only
+    zero = (df["in_game"] & (df["conf_ep"] == 0)).astype(float)
+    df["zero_conf_eps"] = zero.groupby([df["season"], df["castaway_id"]]).cumsum()
+    df["zero_any"] = (df["zero_conf_eps"] > 0).astype(float)
+    df["zero_any_x_new"] = new_era * df["zero_any"]
+
+    # how much air your current tribe gets. a winner's tribe doesn't get buried
+    # pre-merge. post-merge there's one tribe so this saturates to ~1
+    tribe_total = df.groupby(["season", "episode", "tribe"], dropna=False)["conf_ep"].transform(
+        "sum"
+    )
+    ep_total2 = df.groupby(["season", "episode"])["conf_ep"].transform("sum")
+    df["tribe_share_ep"] = (tribe_total / ep_total2.where(ep_total2 > 0)).where(
+        df["tribe"].notna()
+    ).fillna(0.0)
+    df["tribe_share_cum"] = df.groupby(by_player)["tribe_share_ep"].transform(
+        lambda s: s.expanding().mean()
+    )
 
     return df.drop(
         columns=["confessional_count", "confessional_time", "index_count", "_index", "_ep_float"]

@@ -40,6 +40,7 @@ REQUIRED_COLUMNS: dict[str, set[str]] = {
         "season",
         "castaway_id",
         "castaway",
+        "age",
         "result",
         "winner",
         "finalist",
@@ -55,6 +56,7 @@ REQUIRED_COLUMNS: dict[str, set[str]] = {
         "castaway_id",
         "game_status",
         "final_n",
+        "tribe",
     },
     "vote_history": {
         "version",
@@ -83,6 +85,7 @@ REQUIRED_COLUMNS: dict[str, set[str]] = {
     "castaway_details": {
         "castaway_id",
         "gender",
+        "bipoc",
     },
     "season_summary": {
         "version",

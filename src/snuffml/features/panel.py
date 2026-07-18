@@ -24,7 +24,7 @@ def _alive_by_episode(boot_mapping: pd.DataFrame) -> pd.DataFrame:
     entering["in_game"] = entering["game_status"] == "In the game"
     out = (
         entering.groupby(["season", "episode", "castaway_id"], as_index=False)
-        .agg(in_game=("in_game", "any"), final_n=("final_n", "first"))
+        .agg(in_game=("in_game", "any"), final_n=("final_n", "first"), tribe=("tribe", "first"))
     )
     n_alive = (
         out[out["in_game"]]

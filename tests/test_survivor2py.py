@@ -23,6 +23,7 @@ def test_validate_duplicate_winner_raises():
             "season": [1, 1],
             "castaway_id": ["A", "B"],
             "castaway": ["A", "B"],
+            "age": [30, 40],
             "result": ["Sole Survivor", "Sole Survivor"],
             "winner": [True, True],
             "finalist": [True, True],

@@ -39,6 +39,8 @@ def _conf_count(season: int, i: int, ep: int) -> float:
         return 2.0 + ep
     if i == 2:  # runner-up: flat-high
         return 4.0
+    if i == 4 and ep == 2:  # P4 gets a zero-confessional episode
+        return 0.0
     return 2.0
 
 
@@ -48,8 +50,14 @@ def make_tables(seasons: list[int] | None = None) -> dict[str, pd.DataFrame]:
     for season in seasons:
         vs = f"US{season:02d}"
         players = _players(season)
-        for p in players:
-            details.append({"castaway_id": p["castaway_id"], "gender": p["gender"]})
+        for i, p in enumerate(players, start=1):
+            details.append(
+                {
+                    "castaway_id": p["castaway_id"],
+                    "gender": p["gender"],
+                    "bipoc": i % 3 == 0,
+                }
+            )
         for i, p in enumerate(players, start=1):
             booted = _boot_episode(i)
             castaways.append(
@@ -59,6 +67,7 @@ def make_tables(seasons: list[int] | None = None) -> dict[str, pd.DataFrame]:
                     "season": season,
                     "castaway_id": p["castaway_id"],
                     "castaway": p["castaway"],
+                    "age": 25 + 2 * i,
                     "result": "Sole Survivor" if i == 1 else "Runner-up" if i == 2 else "Voted out",
                     "winner": i == 1,
                     "finalist": i <= 2,
@@ -91,6 +100,9 @@ def make_tables(seasons: list[int] | None = None) -> dict[str, pd.DataFrame]:
                         "sog_id": ep,
                         "castaway_id": p["castaway_id"],
                         "castaway": p["castaway"],
+                        # odd players start on Tagi, even on Pagong, merge at ep 4
+                        "tribe": "Merged" if ep >= 4 else ("Tagi" if i % 2 else "Pagong"),
+                        "tribe_status": "Merged" if ep >= 4 else "Original",
                         "game_status": "In the game",
                         "final_n": 2,
                     }

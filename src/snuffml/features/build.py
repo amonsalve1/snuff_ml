@@ -7,13 +7,15 @@ import json
 import pandas as pd
 
 from snuffml import config
-from snuffml.features import edit, panel as panel_mod
+from snuffml.features import demo, edit, panel as panel_mod
 from snuffml.features.panel import LABEL_COLUMNS
 
 KEY_COLUMNS = ["season", "episode", "castaway_id", "castaway"]
 
 
 def feature_columns(df: pd.DataFrame) -> list[str]:
+    # demo.DEMO_FEATURES and edit.EXTRA_COLUMNS are built but deliberately not
+    # model inputs, see the ablation in the study
     cols = list(edit.EDIT_FEATURES)
     try:
         from snuffml.features import gameplay
@@ -33,7 +35,10 @@ def feature_columns(df: pd.DataFrame) -> list[str]:
 def build_features(*, fetch: bool = True, include_gameplay: bool = True) -> pd.DataFrame:
     df = panel_mod.build_panel(fetch=fetch)
     df = edit.add_edit_features(df, fetch=fetch)
+    df = demo.add_demo_features(df, fetch=fetch)
     manifest: dict[str, str] = {c: "features.edit" for c in edit.EDIT_FEATURES}
+    manifest.update({c: "features.edit (column only)" for c in edit.EXTRA_COLUMNS})
+    manifest.update({c: "features.demo (column only)" for c in demo.DEMO_FEATURES})
 
     if include_gameplay:
         try:
