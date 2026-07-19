@@ -28,19 +28,22 @@ Needs Python 3.12+.
 
 ## Data
 
-Main source is [survivoR2py](https://github.com/stiles/survivoR2py), a daily
-CSV mirror of the [survivoR](https://github.com/doehm/survivoR) R package. It
-has confessional counts per player per episode back to season 1, plus boot
-order, votes, jury votes and advantages. `snuffml fetch` caches it under
-`data/raw/`.
+Main source is the [survivoR](https://github.com/doehm/survivoR) R package,
+read straight from the json in its repo (the
+[survivoR2py](https://github.com/stiles/survivoR2py) csv mirror is the
+fallback, it stopped updating). Confessional counts per player per episode
+back to season 1, plus boot order, votes, jury votes and advantages.
+`snuffml fetch` caches it under `data/raw/`.
 
 Edgic ratings (the CP/MOR/UTR/OTT codes with tone and visibility) have no
-public dataset anywhere, so there's a scraper for the weekly charts Inside
-Survivor used to publish (roughly S31-S39), plus support for hand-typed CSVs in
-`data/manual/edgic/`. One thing I care about here: most edgic charts you find
-online were written by people who already knew the winner. Every rating row
-carries a `contemporaneous` flag and only ratings made week-of-airing go into
-the features by default.
+single public dataset, so there are two scrapers: the weekly charts Inside
+Survivor published for roughly S31-S39, and the r/Edgic community survey
+sheets for S41-S50. Hand-typed CSVs in `data/manual/edgic/` also work. One
+thing I care about here: most edgic charts you find online were written by
+people who already knew the winner. Every rating row carries a
+`contemporaneous` flag and only ratings made week-of-airing go into the
+features by default (which is why the S50 chart, compiled after the finale,
+is stored but unused).
 
 ## Modeling notes
 
@@ -59,11 +62,16 @@ Three models, pick with `--model`:
 - `gru`: per-player GRU over the episode sequence with a masked softmax over
   the season roster, averaged over seeds
 
-How well does it work? At the finale the eventual winner is the top pick about
-46% of the time and in the top 3 about 89% of the time. On seasons with edgic
-coverage the edgic features roughly double the log-loss skill and push finale
-top-1 to 62.5%. The new era (S41+) is much harder, the show spreads
-confessionals around pretty evenly now and nobody publishes edgic for it.
+How well does it work? Leave-one-season-out over 50 seasons: at the finale the
+eventual winner is the top pick 44% of the time and in the top 3 90% of the
+time. On seasons with edgic coverage the edgic features roughly double the
+log-loss skill. The new era (S41+) is still much harder, the show spreads
+confessionals around almost evenly now; with the r/Edgic ratings and a
+zero-confessional-episode flag (new-era winners basically never have one) the
+winner at least lands top-3 at every new-era finale, but is rarely the
+outright pick. Demographic and tribe-exposure columns are in the data too;
+they tested neutral-to-negative as model inputs at this sample size, so
+they're study-only.
 
 ## Layout
 
