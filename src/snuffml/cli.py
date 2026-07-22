@@ -75,7 +75,7 @@ def build_edgic(
 
 @app.command()
 def train(
-    model: str = typer.Option("hgb", help="hgb | logit | gru"),
+    model: str = typer.Option("blend", help="blend | logit | hgb | gru"),
     through_season: int = typer.Option(None, help="Train on seasons <= this (default: all completed)"),
 ) -> None:
     """Train a winner model on completed seasons and save it."""
@@ -91,7 +91,7 @@ def train(
     else:
         from snuffml.models import sklearn_baseline as skb
 
-        m = skb.train(df, model, through_season=through_season)
+        m = skb.fit(df, model, through_season=through_season)
         path = skb.model_path(model, m.trained_through)
         m.save(path)
     console.print(f"[green]saved[/green] {path}")
@@ -101,7 +101,7 @@ def train(
 def predict(
     season: int = typer.Option(..., help="Season to predict"),
     episode: int = typer.Option(None, help="Episode number (default: latest with data)"),
-    model: str = typer.Option("hgb", help="hgb | logit | gru"),
+    model: str = typer.Option("blend", help="blend | logit | hgb | gru"),
     refresh: bool = typer.Option(True, help="Refresh data + rebuild features first"),
 ) -> None:
     """Emit ranked win probabilities for a season after a given episode."""
@@ -135,7 +135,7 @@ def predict(
 @app.command()
 def backtest(
     season: int = typer.Option(..., help="Completed season to replay"),
-    model: str = typer.Option("hgb", help="hgb | logit | gru"),
+    model: str = typer.Option("blend", help="blend | logit | hgb | gru"),
 ) -> None:
     """Replay a completed season episode-by-episode with a model trained without it."""
     from snuffml.eval import backtest as bt
@@ -177,7 +177,7 @@ def _load_model(model: str, df, exclude_season: int | None = None):
         path = config.MODELS_DIR / f"{model}_{tag}.joblib"
         if path.exists():
             return skb.WinnerModel.load(path)
-        m = skb.train(train_df, model)
+        m = skb.fit(train_df, model)
     config.ensure_dirs()
     m.save(path)
     return m

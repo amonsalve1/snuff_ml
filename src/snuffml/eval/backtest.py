@@ -19,7 +19,7 @@ def replay_season(df: pd.DataFrame, season: int, model: str = "hgb") -> pd.DataF
 
         m = torch_seq.train(df[df["season"] != season])
     else:
-        m = skb.train(df[df["season"] != season], model)
+        m = skb.fit(df[df["season"] != season], model)
     return m.predict(season_df)
 
 

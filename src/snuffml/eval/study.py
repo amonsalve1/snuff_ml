@@ -16,7 +16,7 @@ from snuffml import config
 from snuffml.eval import metrics, splits
 from snuffml.models import sklearn_baseline as skb
 
-MODELS = ["logit", "hgb"]
+MODELS = ["logit", "blend"]
 
 
 def _era_of_row(s: pd.Series) -> str:
@@ -53,7 +53,7 @@ def _era_holdout_experiment(df: pd.DataFrame, out: Path) -> None:
     rows = skb.training_frame(df)
     results = []
     for model in MODELS:
-        m = skb.train(rows[rows["season"] < splits.ERA_HOLDOUT_BOUNDARY], model)
+        m = skb.fit(rows[rows["season"] < splits.ERA_HOLDOUT_BOUNDARY], model)
         test = rows[rows["season"] >= splits.ERA_HOLDOUT_BOUNDARY]
         preds = m.predict(test)
         snap = metrics.snapshot_metrics(preds)
