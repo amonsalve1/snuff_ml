@@ -107,6 +107,72 @@ class WinnerModel:
         return joblib.load(path)
 
 
+@dataclass
+class EraBlendModel:
+    """Geometric mean of a pooled model and a same-era model.
+
+    Eras really are edited differently (the new era most of all), but a pure
+    era model only has ~9-19 seasons behind it and calibrates badly
+    mid-season. The pooled model is the opposite: solid calibration, mushy
+    finale ranking on the new era. The geometric blend keeps most of both.
+    """
+
+    model_type: str
+    pooled: "WinnerModel"
+    era_models: dict[str, "WinnerModel"]
+    trained_through: int | None = None
+
+    def raw_prob(self, rows: pd.DataFrame) -> np.ndarray:
+        p = self.pooled.raw_prob(rows)
+        for era, m in self.era_models.items():
+            mask = (rows["era"] == era).to_numpy()
+            if mask.any():
+                p_era = m.raw_prob(rows[mask])
+                p[mask] = np.sqrt(p[mask] * p_era)
+        return p
+
+    def predict(self, df: pd.DataFrame) -> pd.DataFrame:
+        rows = df[df["in_game"]].copy()
+        rows["raw_prob"] = self.raw_prob(rows)
+        return normalize_by_group(rows)
+
+    def save(self, path: Path) -> None:
+        joblib.dump(self, path)
+
+    @staticmethod
+    def load(path: Path) -> "EraBlendModel":
+        return joblib.load(path)
+
+
+MIN_ERA_SEASONS = 5  # need at least this many seasons to fit an era model
+
+# only the new era gets a blended era model. tried blending all three: the new
+# era finale top1 doubled (edited genuinely differently) but old/middle got
+# worse, they share enough editing grammar that pooling wins there
+BLEND_ERAS = {"new"}
+
+
+def train_blend(
+    df: pd.DataFrame, base_model: str = "logit", *, through_season: int | None = None
+) -> EraBlendModel:
+    pooled = train(df, base_model, through_season=through_season)
+    era_models = {}
+    for era in BLEND_ERAS & set(df["era"].dropna().unique()):
+        era_df = df[df["era"] == era]
+        rows = training_frame(era_df)
+        rows = rows[~rows["season"].isin(config.OUTLIER_SEASONS)]
+        n_seasons = rows["season"].nunique()
+        if n_seasons < MIN_ERA_SEASONS:
+            continue
+        era_models[era] = train(era_df, base_model, through_season=through_season)
+    return EraBlendModel(
+        model_type=f"blend[{base_model}]",
+        pooled=pooled,
+        era_models=era_models,
+        trained_through=pooled.trained_through,
+    )
+
+
 def _fit_calibrator(raw: np.ndarray, y: np.ndarray) -> LogisticRegression:
     logit = np.log(np.clip(raw, 1e-9, 1 - 1e-9) / (1 - np.clip(raw, 1e-9, 1 - 1e-9)))
     cal = LogisticRegression(max_iter=5000)
@@ -123,15 +189,19 @@ def train(
 ) -> WinnerModel:
     feature_cols = build_mod.feature_columns(df) + CATEGORICAL
     rows = training_frame(df)
+    # outlier seasons are still predicted and scored, just not learned from
+    rows = rows[~rows["season"].isin(config.OUTLIER_SEASONS)]
     if through_season is not None:
         rows = rows[rows["season"] <= through_season]
     y = rows["is_winner"].astype(int).to_numpy()
 
     calibrator = None
-    if calibrate:
-        # platt fit on season-grouped oof probs
+    n_seasons = rows["season"].nunique()
+    if calibrate and n_seasons >= 2:
+        # platt fit on season-grouped oof probs; fewer folds when the training
+        # set is small (era models)
         oof = np.full(len(rows), np.nan)
-        for train_idx, test_idx in splits.season_folds(rows, n_splits=5):
+        for train_idx, test_idx in splits.season_folds(rows, n_splits=min(5, n_seasons)):
             pipe = make_pipeline(model, feature_cols)
             pipe.fit(rows.iloc[train_idx][feature_cols], y[train_idx])
             oof[test_idx] = pipe.predict_proba(rows.iloc[test_idx][feature_cols])[:, 1]
@@ -148,6 +218,13 @@ def train(
     )
 
 
+def fit(df: pd.DataFrame, model: str = "hgb", *, through_season: int | None = None):
+    """train() or train_blend() depending on the model name."""
+    if model == "blend":
+        return train_blend(df, through_season=through_season)
+    return train(df, model, through_season=through_season)
+
+
 def cross_val_predictions(
     df: pd.DataFrame, model: str = "hgb", *, loso: bool = False
 ) -> pd.DataFrame:
@@ -162,7 +239,8 @@ def cross_val_predictions(
         else ((None, tr, te) for tr, te in splits.season_folds(rows, n_splits=5))
     )
     for _, train_idx, test_idx in fold_iter:
-        m = train(rows.iloc[train_idx], model)
+        fold_df = rows.iloc[train_idx]
+        m = train_blend(fold_df) if model == "blend" else train(fold_df, model)
         test = rows.iloc[test_idx].copy()
         test["raw_prob"] = m.raw_prob(test)
         preds.append(test)

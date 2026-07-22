@@ -62,3 +62,28 @@ def test_model_features_vs_columns(features_df):
     for c in ["zero_conf_eps", "tribe_share_ep", "tribe_share_cum", "age", "is_poc"]:
         assert c in features_df.columns
         assert c not in cols
+
+
+def test_outlier_seasons_excluded_from_training(features_df, monkeypatch):
+    from snuffml import config
+    from snuffml.models import sklearn_baseline as skb
+
+    monkeypatch.setattr(config, "OUTLIER_SEASONS", {41})
+    m = skb.train(features_df, "logit", calibrate=False)
+    assert m.trained_through == 39
+    monkeypatch.setattr(config, "OUTLIER_SEASONS", set())
+    m = skb.train(features_df, "logit", calibrate=False)
+    assert m.trained_through == 41
+
+
+def test_era_blend_model(features_df, monkeypatch):
+    from snuffml import config
+    from snuffml.models import sklearn_baseline as skb
+
+    monkeypatch.setattr(config, "OUTLIER_SEASONS", set())
+    monkeypatch.setattr(skb, "MIN_ERA_SEASONS", 1)
+    m = skb.train_blend(features_df)
+    assert set(m.era_models) == {"new"}  # only the new era gets its own model
+    preds = m.predict(features_df)
+    sums = preds.groupby(["season", "episode"])["win_prob"].sum()
+    assert (sums - 1).abs().max() < 1e-9

@@ -45,6 +45,12 @@ ERA_BOUNDARIES = {
     "new": range(41, 100),  # S41+
 }
 
+# seasons whose edit-to-winner mapping is considered broken and excluded from
+# model fitting (still predicted and scored). s41: erika won off an edit that
+# pointed at everyone else, lowest confessional share of any winner, first
+# new-era season while production was still figuring the format out.
+OUTLIER_SEASONS: set[int] = {41}
+
 # seasons with edgic coverage we can actually use, filled in as sources get
 # ingested. feature code gates on this.
 EDGIC_SEASONS: set[int] = set()

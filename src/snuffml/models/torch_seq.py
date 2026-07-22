@@ -256,6 +256,8 @@ def train(
 ) -> GRUWinnerModel:
     feature_cols = build_mod.feature_columns(df)
     rows = training_frame(df)
+    # same rule as the sklearn side: outlier seasons aren't learned from
+    rows = rows[~rows["season"].isin(config.OUTLIER_SEASONS)]
     if through_season is not None:
         rows = rows[rows["season"] <= through_season]
     seasons = sorted(rows["season"].unique())
