@@ -13,12 +13,16 @@ GAMEPLAY_FEATURES = [
     "vote_acc_cum",
     "votes_against_cum",
     "adv_events_cum",
+    "imm_early_cum",
+    "imm_late_cum",
+    "imm_early_x_old",
 ]
 
 
 def add_gameplay_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFrame:
     vh = survivor2py.load_table("vote_history", fetch=fetch)
     adv = survivor2py.load_table("advantage_movement", fetch=fetch)
+    ch = survivor2py.load_table("challenge_results", fetch=fetch)
 
     votes = vh.dropna(subset=["episode"]).copy()
     votes["correct"] = (votes["vote_id"] == votes["voted_out_id"]) & votes["vote_id"].notna()
@@ -49,6 +53,16 @@ def add_gameplay_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.Data
     for col in ["votes_cast", "vfb", "votes_received", "adv_events"]:
         df[col] = df[col].fillna(0.0).astype(float)
 
+    imm = (
+        ch[ch["won_individual_immunity"].fillna(0) > 0]
+        .groupby(["season", "episode", "castaway_id"])
+        .size()
+        .rename("imm_win")
+        .reset_index()
+    )
+    df = df.merge(imm, on=["season", "episode", "castaway_id"], how="left")
+    df["imm_win"] = df["imm_win"].fillna(0.0)
+
     df = df.sort_values(["season", "castaway_id", "episode"]).reset_index(drop=True)
     g = df.groupby(["season", "castaway_id"])
     df["vfb_cum"] = g["vfb"].cumsum()
@@ -57,4 +71,33 @@ def add_gameplay_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.Data
     df["votes_against_cum"] = g["votes_received"].cumsum()
     df["adv_events_cum"] = g["adv_events"].cumsum()
 
-    return df.drop(columns=["votes_cast", "vfb", "votes_received", "adv_events"])
+    # immunity wins split by when in the merge they happen. late wins help in
+    # every era, early wins mark you as a threat in the old era (winners there
+    # won LESS early immunity than losing finalists), so era interaction.
+    # merge detection is causal: one tribe left among alive players at t.
+    by_ep = (
+        df[df["in_game"]]
+        .groupby(["season", "episode"])["tribe"]
+        .nunique()
+        .rename("n_tribes")
+        .reset_index()
+        .sort_values(["season", "episode"])
+    )
+    by_ep["_merged"] = (by_ep["n_tribes"] == 1).astype(float).groupby(by_ep["season"]).cummax()
+    df = df.merge(by_ep[["season", "episode", "_merged"]], on=["season", "episode"], how="left")
+    df["_merged"] = df["_merged"].fillna(0.0)
+    # episodes since the merge hit (per player row, episodes are aligned)
+    m_age = df.groupby(["season", "castaway_id"])["_merged"].cumsum()
+    early = (df["_merged"] > 0) & (m_age <= 3)
+    late = (df["_merged"] > 0) & (m_age > 3)
+    df["imm_early_cum"] = (df["imm_win"] * early).groupby(
+        [df["season"], df["castaway_id"]]
+    ).cumsum()
+    df["imm_late_cum"] = (df["imm_win"] * late).groupby(
+        [df["season"], df["castaway_id"]]
+    ).cumsum()
+    df["imm_early_x_old"] = (df["era"] == "old").astype(float) * df["imm_early_cum"]
+
+    return df.drop(
+        columns=["votes_cast", "vfb", "votes_received", "adv_events", "imm_win", "_merged"]
+    )

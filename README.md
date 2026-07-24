@@ -73,15 +73,22 @@ edit pointed at everyone else, and keeping that season in training measurably
 dragged down the fit on every other new-era season.
 
 How well does it work? Leave-one-season-out over 50 seasons with the blend:
-at the finale the eventual winner is the top pick 48% of the time and in the
-top 3 92% of the time. On seasons with edgic coverage the edgic features
+at the finale the eventual winner is the top pick 44% of the time and in the
+top 3 94% of the time. On seasons with edgic coverage the edgic features
 roughly double the log-loss skill. The new era (S41+) is still much harder,
 the show spreads confessionals around almost evenly now; the r/Edgic ratings,
 a zero-confessional-episode flag (new-era winners basically never have one)
-and the era-blended model doubled new-era finale top-1 to 20% with the winner
-top-3 in 9 of 10 new-era finales. Demographic and tribe-exposure columns are
-in the data too; they tested neutral-to-negative as model inputs at this
-sample size, so they're study-only.
+and the era-blended model got the winner top-3 at all ten new-era finales.
+
+Immunity timing turned out to matter more than immunity counts: late-merge
+immunity wins point at the winner in every era, while winning early in the
+merge is a threat signal that old-era winners specifically avoided (they won
+less early immunity than losing finalists). Those features were the single
+biggest gain in matched cv. The winner's original tribe also over-indexes on
+pre-merge confessionals, a small but real effect (`orig_tribe_over`).
+Demographic and current-tribe-share columns are in the data too; they tested
+neutral-to-negative as model inputs at this sample size, so they're
+study-only.
 
 ## Layout
 

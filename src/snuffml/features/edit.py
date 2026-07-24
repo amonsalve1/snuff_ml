@@ -27,11 +27,13 @@ EDIT_FEATURES = [
     "new_era_x_share_cum",
     "zero_any",
     "zero_any_x_new",
+    "orig_tribe_over",
 ]
 
 # computed but not in the default model set: the raw zero-conf count helps
-# finale ranking but wrecks mid-season calibration, and tribe share tested
-# neutral in cv. kept as columns for the study.
+# finale ranking but wrecks mid-season calibration, and current-tribe share
+# tested neutral in cv (the original-tribe version made the cut). kept as
+# columns for the study.
 EXTRA_COLUMNS = ["zero_conf_eps", "tribe_share_ep", "tribe_share_cum"]
 
 
@@ -133,6 +135,65 @@ def add_edit_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFram
         lambda s: s.expanding().mean()
     )
 
+    # sharper version: your ORIGINAL tribe's share of pre-merge confessionals
+    # minus its fair share by headcount, frozen once the merge hits. winners
+    # tend to come from the starting tribe the edit didn't bury. merge
+    # detection is causal, one tribe left among alive players.
+    df["_orig_tribe"] = df.groupby(by_player)["tribe"].transform("first")
+    by_ep = (
+        df[df["in_game"]]
+        .groupby(["season", "episode"])["tribe"]
+        .nunique()
+        .rename("_nt")
+        .reset_index()
+        .sort_values(["season", "episode"])
+    )
+    by_ep["_pre"] = 1.0 - (by_ep["_nt"] == 1).astype(float).groupby(by_ep["season"]).cummax()
+    df = df.merge(by_ep[["season", "episode", "_pre"]], on=["season", "episode"], how="left")
+    df["_pre"] = df["_pre"].fillna(0.0)
+    # accumulate at (season, episode, tribe) level, per-row cumsums would mix
+    # in other castaways' future episodes
+    ep_tribe = (
+        df.assign(_pc=df["conf_ep"] * df["_pre"])
+        .groupby(["season", "episode", "_orig_tribe"], dropna=False)["_pc"]
+        .sum()
+        .reset_index()
+        .sort_values(["season", "_orig_tribe", "episode"])
+    )
+    ep_tribe["_tribe_pre_cum"] = ep_tribe.groupby(["season", "_orig_tribe"], dropna=False)[
+        "_pc"
+    ].cumsum()
+    df = df.merge(
+        ep_tribe[["season", "episode", "_orig_tribe", "_tribe_pre_cum"]],
+        on=["season", "episode", "_orig_tribe"],
+        how="left",
+    )
+    total_pre = (
+        ep_tribe.groupby(["season", "episode"], as_index=False)["_pc"]
+        .sum()
+        .sort_values(["season", "episode"])
+    )
+    total_pre["_total_pre_cum"] = total_pre.groupby("season")["_pc"].cumsum()
+    df = df.merge(
+        total_pre[["season", "episode", "_total_pre_cum"]], on=["season", "episode"], how="left"
+    )
+    cast_n = df.groupby("season")["castaway_id"].transform("nunique")
+    tribe_n = df.groupby(["season", "_orig_tribe"])["castaway_id"].transform("nunique")
+    df["orig_tribe_over"] = (
+        (df["_tribe_pre_cum"] / df["_total_pre_cum"].where(df["_total_pre_cum"] > 0))
+        - tribe_n / cast_n
+    ).fillna(0.0)
+
     return df.drop(
-        columns=["confessional_count", "confessional_time", "index_count", "_index", "_ep_float"]
+        columns=[
+            "confessional_count",
+            "confessional_time",
+            "index_count",
+            "_index",
+            "_ep_float",
+            "_orig_tribe",
+            "_pre",
+            "_tribe_pre_cum",
+            "_total_pre_cum",
+        ]
     )

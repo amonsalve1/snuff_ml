@@ -87,3 +87,24 @@ def test_era_blend_model(features_df, monkeypatch):
     preds = m.predict(features_df)
     sums = preds.groupby(["season", "episode"])["win_prob"].sum()
     assert (sums - 1).abs().max() < 1e-9
+
+
+def test_immunity_timing_features(features_df):
+    s39 = features_df[features_df["season"] == 39]
+    p1 = s39[s39["castaway_id"] == "S39P1"].set_index("episode")
+    p2 = s39[s39["castaway_id"] == "S39P2"].set_index("episode")
+    # merge at ep 4: P2's ep-4 win is early, P1's ep-7 win is late
+    assert p2["imm_early_cum"][7] == 1.0 and p2["imm_late_cum"][7] == 0.0
+    assert p1["imm_early_cum"][7] == 0.0 and p1["imm_late_cum"][7] == 1.0
+    assert (s39["imm_early_x_old"] == 0).all()  # s39 is middle era
+
+
+def test_orig_tribe_over_frozen_at_merge(features_df):
+    s39 = features_df[features_df["season"] == 39]
+    p1 = s39[s39["castaway_id"] == "S39P1"].set_index("episode")["orig_tribe_over"]
+    # pre-merge: tagi (p1,3,5,7) gets 9 of 19 ep-1 confs vs 4/8 fair share
+    import numpy as np
+
+    assert np.isclose(p1[1], 9 / 19 - 0.5)
+    # frozen after the merge at ep 4
+    assert np.isclose(p1[4], p1[7])

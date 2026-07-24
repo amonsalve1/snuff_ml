@@ -162,8 +162,26 @@ def make_tables(seasons: list[int] | None = None) -> dict[str, pd.DataFrame]:
     advantage_movement = pd.DataFrame(
         columns=["version", "version_season", "season", "episode", "castaway_id", "event"]
     )
+    # tribes merge at ep 4, so ep 4-6 are "early merge" and ep 7 is "late".
+    # P2 wins immunity early, P1 (the winner) wins it late.
+    challenge_results = pd.DataFrame(
+        [
+            {
+                "version": "US",
+                "version_season": f"US{season:02d}",
+                "season": season,
+                "episode": ep,
+                "castaway_id": _pid(season, i),
+                "challenge_type": "Immunity",
+                "won_individual_immunity": 1.0,
+            }
+            for season in seasons
+            for i, ep in [(2, 4), (1, 7)]
+        ]
+    )
     return {
         "advantage_movement": advantage_movement,
+        "challenge_results": challenge_results,
         "confessionals": pd.DataFrame(conf),
         "castaways": pd.DataFrame(castaways),
         "boot_mapping": pd.DataFrame(boot),
