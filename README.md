@@ -86,6 +86,12 @@ merge is a threat signal that old-era winners specifically avoided (they won
 less early immunity than losing finalists). Those features were the single
 biggest gain in matched cv. The winner's original tribe also over-indexes on
 pre-merge confessionals, a small but real effect (`orig_tribe_over`).
+
+The best new-era tell goes the other way: the player leading cumulative
+confessional share through episode 4 has never won a new-era season (0 for
+10). The editors crown an early frontrunner precisely to dethrone them around
+the merge or final seven, so holding the early flag is a death sentence
+(`early_flag` x new era).
 Demographic and current-tribe-share columns are in the data too; they tested
 neutral-to-negative as model inputs at this sample size, so they're
 study-only.

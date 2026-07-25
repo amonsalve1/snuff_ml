@@ -6,6 +6,7 @@ episode-sorted cumsums, shares/z-scores only look at the cross-section at t.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from snuffml.data import survivor2py
@@ -28,6 +29,8 @@ EDIT_FEATURES = [
     "zero_any",
     "zero_any_x_new",
     "orig_tribe_over",
+    "early_flag",
+    "early_flag_x_new",
 ]
 
 # computed but not in the default model set: the raw zero-conf count helps
@@ -106,6 +109,24 @@ def add_edit_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFram
 
     df["_ep_float"] = df["episode"].astype(float)
     df["conf_trend"] = _expanding_slope(df, by_player, "_ep_float", "conf_share_ep")
+
+    # the "coronation" death flag: whoever leads cumulative confessional share
+    # through episode 4 has never won in the new era (0 for 10 through s50),
+    # the editors build that person up to dethrone them around merge/f7.
+    # frozen at ep 4; before ep 4 it's the running leader, still causal
+    alive_share = df["conf_share_cum"].where(df["in_game"])
+    lead = (alive_share == alive_share.groupby([df["season"], df["episode"]]).transform("max")) & df[
+        "in_game"
+    ]
+    at4 = df["episode"] == 4
+    l4 = pd.Series(
+        lead[at4].astype(float).to_numpy(),
+        index=pd.MultiIndex.from_frame(df.loc[at4, ["season", "castaway_id"]]),
+    )
+    key = pd.MultiIndex.from_frame(df[["season", "castaway_id"]])
+    lead_at_4 = pd.Series(l4.reindex(key).to_numpy(), index=df.index).fillna(0.0)
+    df["early_flag"] = np.where(df["episode"] < 4, lead.astype(float), lead_at_4)
+    df["early_flag_x_new"] = (df["era"] == "new").astype(float) * df["early_flag"]
 
     df["is_female"] = (df["gender"] == "Female").astype(float)
     df["female_x_share_cum"] = df["is_female"] * df["conf_share_cum"]
