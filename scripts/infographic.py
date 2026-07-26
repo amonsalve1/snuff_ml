@@ -3,7 +3,7 @@ everyone's win-prob lines and the winner highlighted, plus the called/top-3
 scoreboard.
 
 Reads reports/retrospective/preds_blend.parquet (run `snuffml study --loso`
-first), writes reports/infographic.png.
+first), writes docs/infographic.png.
 """
 
 from __future__ import annotations
@@ -128,7 +128,8 @@ def main() -> None:
         ax.grid(axis="y", color="#e8e6df", lw=0.6, zorder=0)
         ax.tick_params(length=0)
 
-    out = config.REPORTS_DIR / "infographic.png"
+    out = config.PROJECT_ROOT / "docs" / "infographic.png"
+    out.parent.mkdir(exist_ok=True)
     fig.savefig(out, dpi=150, facecolor=SURFACE)
     print(f"wrote {out}")
 

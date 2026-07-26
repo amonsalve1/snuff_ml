@@ -72,7 +72,13 @@ from. Erika won off the lowest confessional share of any winner while the
 edit pointed at everyone else, and keeping that season in training measurably
 dragged down the fit on every other new-era season.
 
-How well does it work? Leave-one-season-out over 50 seasons with the blend:
+How well does it work? Here's every season, every player's win probability
+episode by episode, winner highlighted (green = called at the finale, orange =
+top 3, red = missed):
+
+![the loso backtest, one panel per season](docs/infographic.png)
+
+Leave-one-season-out over 50 seasons with the blend:
 at the finale the eventual winner is the top pick 44% of the time and in the
 top 3 94% of the time. On seasons with edgic coverage the edgic features
 roughly double the log-loss skill. The new era (S41+) is still much
