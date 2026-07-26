@@ -71,10 +71,9 @@ def add_gameplay_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.Data
     df["votes_against_cum"] = g["votes_received"].cumsum()
     df["adv_events_cum"] = g["adv_events"].cumsum()
 
-    # immunity wins split by when in the merge they happen. late wins help in
-    # every era, early wins mark you as a threat in the old era (winners there
-    # won LESS early immunity than losing finalists), so era interaction.
-    # merge detection is causal: one tribe left among alive players at t.
+    # immunity wins split early/late post-merge. late wins help in every era;
+    # old era winners won less early immunity than losing finalists (threat
+    # marker), so era interaction. merge = one tribe left among alive at t
     by_ep = (
         df[df["in_game"]]
         .groupby(["season", "episode"])["tribe"]
@@ -86,7 +85,7 @@ def add_gameplay_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.Data
     by_ep["_merged"] = (by_ep["n_tribes"] == 1).astype(float).groupby(by_ep["season"]).cummax()
     df = df.merge(by_ep[["season", "episode", "_merged"]], on=["season", "episode"], how="left")
     df["_merged"] = df["_merged"].fillna(0.0)
-    # episodes since the merge hit (per player row, episodes are aligned)
+    # episodes since merge
     m_age = df.groupby(["season", "castaway_id"])["_merged"].cumsum()
     early = (df["_merged"] > 0) & (m_age <= 3)
     late = (df["_merged"] > 0) & (m_age > 3)

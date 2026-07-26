@@ -33,10 +33,9 @@ EDIT_FEATURES = [
     "early_flag_x_new",
 ]
 
-# computed but not in the default model set: the raw zero-conf count helps
-# finale ranking but wrecks mid-season calibration, and current-tribe share
-# tested neutral in cv (the original-tribe version made the cut). kept as
-# columns for the study.
+# built but not in the model set: raw zero-conf count wrecks mid-season
+# calibration, current-tribe share tested neutral (orig-tribe version made
+# the cut). kept for the study
 EXTRA_COLUMNS = ["zero_conf_eps", "tribe_share_ep", "tribe_share_cum"]
 
 
@@ -110,10 +109,8 @@ def add_edit_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFram
     df["_ep_float"] = df["episode"].astype(float)
     df["conf_trend"] = _expanding_slope(df, by_player, "_ep_float", "conf_share_ep")
 
-    # the "coronation" death flag: whoever leads cumulative confessional share
-    # through episode 4 has never won in the new era (0 for 10 through s50),
-    # the editors build that person up to dethrone them around merge/f7.
-    # frozen at ep 4; before ep 4 it's the running leader, still causal
+    # early frontrunner flag: the cum share leader through ep 4 is 0 for 10
+    # as a new era winner. frozen at ep 4, running leader before that
     alive_share = df["conf_share_cum"].where(df["in_game"])
     lead = (alive_share == alive_share.groupby([df["season"], df["episode"]]).transform("max")) & df[
         "in_game"
@@ -133,18 +130,15 @@ def add_edit_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFram
     new_era = (df["era"] == "new").astype(float)
     df["new_era_x_share_cum"] = new_era * df["conf_share_cum"]
 
-    # episodes where you were in the game but got zero confessionals. in the
-    # new era winners basically never have one (1 of 10 through s50), in the
-    # old era it just tracked whether your tribe went to tribal, hence the era
-    # interaction. the binary beat the raw count in cv (the count punishes
-    # people too hard mid-season), count kept as a column only
+    # zero-confessional episodes. new era winners almost never have one (1 of
+    # 10 through s50), old era it mostly tracks tribal attendance, hence the
+    # interaction. binary beat the raw count in cv
     zero = (df["in_game"] & (df["conf_ep"] == 0)).astype(float)
     df["zero_conf_eps"] = zero.groupby([df["season"], df["castaway_id"]]).cumsum()
     df["zero_any"] = (df["zero_conf_eps"] > 0).astype(float)
     df["zero_any_x_new"] = new_era * df["zero_any"]
 
-    # how much air your current tribe gets. a winner's tribe doesn't get buried
-    # pre-merge. post-merge there's one tribe so this saturates to ~1
+    # current tribe's share of airtime, saturates to ~1 post-merge
     tribe_total = df.groupby(["season", "episode", "tribe"], dropna=False)["conf_ep"].transform(
         "sum"
     )
@@ -156,10 +150,8 @@ def add_edit_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFram
         lambda s: s.expanding().mean()
     )
 
-    # sharper version: your ORIGINAL tribe's share of pre-merge confessionals
-    # minus its fair share by headcount, frozen once the merge hits. winners
-    # tend to come from the starting tribe the edit didn't bury. merge
-    # detection is causal, one tribe left among alive players.
+    # original tribe's share of pre-merge confessionals minus fair share by
+    # headcount, frozen at merge (merge = one tribe left among alive)
     df["_orig_tribe"] = df.groupby(by_player)["tribe"].transform("first")
     by_ep = (
         df[df["in_game"]]
@@ -172,8 +164,8 @@ def add_edit_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFram
     by_ep["_pre"] = 1.0 - (by_ep["_nt"] == 1).astype(float).groupby(by_ep["season"]).cummax()
     df = df.merge(by_ep[["season", "episode", "_pre"]], on=["season", "episode"], how="left")
     df["_pre"] = df["_pre"].fillna(0.0)
-    # accumulate at (season, episode, tribe) level, per-row cumsums would mix
-    # in other castaways' future episodes
+    # cumsum at tribe level, per-row cumsums would mix in other castaways'
+    # future episodes
     ep_tribe = (
         df.assign(_pc=df["conf_ep"] * df["_pre"])
         .groupby(["season", "episode", "_orig_tribe"], dropna=False)["_pc"]

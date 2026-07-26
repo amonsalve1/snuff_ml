@@ -39,7 +39,7 @@ def build_edgic(
     """Scrape/assemble edgic ratings into data/interim/edgic.parquet.
 
     Seasons through 39 come from Inside Survivor, 41+ from the r/Edgic sheets.
-    Already-scraped seasons are kept unless you re-scrape them.
+    Seasons already in the parquet are kept unless you scrape them again.
     """
     import pandas as pd
 

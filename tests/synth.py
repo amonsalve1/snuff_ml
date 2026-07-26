@@ -162,8 +162,8 @@ def make_tables(seasons: list[int] | None = None) -> dict[str, pd.DataFrame]:
     advantage_movement = pd.DataFrame(
         columns=["version", "version_season", "season", "episode", "castaway_id", "event"]
     )
-    # tribes merge at ep 4, so ep 4-6 are "early merge" and ep 7 is "late".
-    # P2 wins immunity early, P1 (the winner) wins it late.
+    # merge is ep 4, so eps 4-6 count as early merge and ep 7 as late;
+    # P2 wins immunity early, P1 (the winner) wins it late
     challenge_results = pd.DataFrame(
         [
             {

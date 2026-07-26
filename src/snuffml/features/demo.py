@@ -1,9 +1,6 @@
-"""Demographic columns. The edit treats demographics differently (female
-winners get about half the confessional volume of male ones, for a start).
-These tested slightly negative in cv for the logit (n=49 winners is just too
-small for more interactions, gender is already in the base set), so they're
-built for the study but not in the default model features.
-"""
+"""Demographic columns. Built for the study, not the default model set:
+tested slightly negative in cv (49 winners is too few for more interactions,
+gender is already in the base features)."""
 
 from __future__ import annotations
 

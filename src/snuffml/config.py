@@ -45,10 +45,8 @@ ERA_BOUNDARIES = {
     "new": range(41, 100),  # S41+
 }
 
-# seasons whose edit-to-winner mapping is considered broken and excluded from
-# model fitting (still predicted and scored). s41: erika won off an edit that
-# pointed at everyone else, lowest confessional share of any winner, first
-# new-era season while production was still figuring the format out.
+# excluded from fitting, still predicted and scored. s41: erika won with the
+# lowest confessional share of any winner, the edit pointed everywhere else
 OUTLIER_SEASONS: set[int] = {41}
 
 # seasons with edgic coverage we can actually use, filled in as sources get
@@ -59,8 +57,7 @@ EDGIC_RATINGS = ["INV", "UTR", "MOR", "CP", "OTT"]
 EDGIC_TONES = ["NN", "N", "M", "P", "PP"]
 EDGIC_SOURCES = ["inside_survivor", "reddit", "sucks", "manual"]
 
-# (season, name as written in the source) -> castaway_id, for names the
-# sources spell differently than survivoR does
+# (season, source spelling) -> castaway_id where sources disagree with survivoR
 CASTAWAY_ALIASES: dict[tuple[int, str], str] = {
     (31, "Kass McQuillen"): "US0422",  # Kassandra
     (31, "Tasha Fox"): "US0419",  # Latasha

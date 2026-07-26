@@ -2,8 +2,8 @@ import numpy as np
 
 
 def test_zero_conf_eps(features_df):
-    # only counts episodes you were actually in: P4 has the one zero-conf
-    # episode (ep 2), booted players don't keep accruing
+    # only counts episodes you were in: P4 has the one zero-conf episode
+    # (ep 2), booted players don't keep accruing
     s39 = features_df[features_df["season"] == 39]
     p4 = s39[s39["castaway_id"] == "S39P4"].set_index("episode")["zero_conf_eps"]
     assert p4[1] == 0
@@ -112,13 +112,13 @@ def test_orig_tribe_over_frozen_at_merge(features_df):
 
 def test_early_flag(features_df):
     s39 = features_df[features_df["season"] == 39]
-    # P1 leads cumulative share by ep 4 (3+4+5+6=18 vs P2's 16) and keeps the
-    # flag frozen after; P2 never holds it from ep 4 on
+    # P1 leads cumulative share at ep 4 (3+4+5+6=18 vs P2's 16); the flag
+    # freezes there, P2 never gets it
     p1 = s39[s39["castaway_id"] == "S39P1"].set_index("episode")["early_flag"]
     p2 = s39[s39["castaway_id"] == "S39P2"].set_index("episode")["early_flag"]
     assert p1[4] == 1.0 and p1[7] == 1.0
     assert p2[4] == 0.0 and p2[7] == 0.0
-    # era interaction only fires for the new-era season
+    # interaction only fires in the new era
     s41 = features_df[features_df["season"] == 41]
     assert (s39["early_flag_x_new"] == 0).all()
     p1_41 = s41[s41["castaway_id"] == "S41P1"].set_index("episode")

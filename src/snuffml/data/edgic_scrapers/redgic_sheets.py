@@ -1,11 +1,9 @@
-"""New-era edgic from the r/Edgic community google sheets.
+"""New-era edgic from the r/Edgic google sheets.
 
-The sub ran a survey after every episode for s41-s49 and published consensus
-codes into one public sheet per season, so those are weekly-contemporaneous.
-S50 only exists as a tab in the s31-50 master sheet, which was compiled after
-the finale from the raters' weekly charts - inputs were contemporaneous but
-the compilation wasn't, so s50 gets contemporaneous=False and only shows up
-if you allow retrospective ratings.
+s41-s49 have one weekly consensus sheet each, so those count as
+contemporaneous. s50 is only a tab in the s31-50 master sheet, compiled after
+the finale, so it's contemporaneous=False and gated behind the retrospective
+flag.
 """
 
 from __future__ import annotations

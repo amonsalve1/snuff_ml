@@ -75,10 +75,11 @@ dragged down the fit on every other new-era season.
 How well does it work? Leave-one-season-out over 50 seasons with the blend:
 at the finale the eventual winner is the top pick 44% of the time and in the
 top 3 94% of the time. On seasons with edgic coverage the edgic features
-roughly double the log-loss skill. The new era (S41+) is still much harder,
-the show spreads confessionals around almost evenly now; the r/Edgic ratings,
-a zero-confessional-episode flag (new-era winners basically never have one)
-and the era-blended model got the winner top-3 at all ten new-era finales.
+roughly double the log-loss skill. The new era (S41+) is still much
+harder because the show spreads confessionals around almost evenly now. The
+r/Edgic ratings, a zero-confessional-episode flag (new-era winners basically
+never have one) and the era-blended model got the winner top-3 at all ten
+new-era finales.
 
 Immunity timing turned out to matter more than immunity counts: late-merge
 immunity wins point at the winner in every era, while winning early in the
@@ -89,9 +90,10 @@ pre-merge confessionals, a small but real effect (`orig_tribe_over`).
 
 The best new-era tell goes the other way: the player leading cumulative
 confessional share through episode 4 has never won a new-era season (0 for
-10). The editors crown an early frontrunner precisely to dethrone them around
+10). The editors crown an early frontrunner just to dethrone them around
 the merge or final seven, so holding the early flag is a death sentence
 (`early_flag` x new era).
+
 Demographic and current-tribe-share columns are in the data too; they tested
 neutral-to-negative as model inputs at this sample size, so they're
 study-only.

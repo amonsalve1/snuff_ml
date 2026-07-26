@@ -1,5 +1,6 @@
-"""One-page infographic of the LOSO backtest: every season's win-probability
-trajectories with the winner highlighted, plus the called/top-3 scoreboard.
+"""One-page infographic of the LOSO backtest: one small chart per season with
+everyone's win-prob lines and the winner highlighted, plus the called/top-3
+scoreboard.
 
 Reads reports/retrospective/preds_blend.parquet (run `snuffml study --loso`
 first), writes reports/infographic.png.
@@ -16,8 +17,8 @@ import pandas as pd
 from snuffml import config
 from snuffml.eval import metrics
 
-# okabe-ito, colorblind safe; outcomes also carry a text badge so nothing is
-# color-alone
+# okabe-ito, colorblind safe; the outcome badge is text anyway so color
+# isn't the only cue
 C_CALLED = "#009E73"
 C_TOP3 = "#E69F00"
 C_MISS = "#D55E00"

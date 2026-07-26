@@ -47,9 +47,8 @@ def make_pipeline(model: str, feature_cols: list[str]) -> Pipeline:
         )
         clf = LogisticRegression(C=1.0, max_iter=5000, class_weight="balanced")
     elif model == "hgb":
-        # hgb's binner crashes on an all-NaN column (conf_time_ep is empty
-        # pre-s41), so impute constants here too; has_time / edgic_available
-        # keep the missingness signal
+        # hgb's binner crashes on an all-NaN column (conf_time_ep pre-s41),
+        # impute constants; has_time keeps the missingness signal
         pre = ColumnTransformer(
             [
                 ("num", SimpleImputer(strategy="constant", fill_value=0.0), numeric),
@@ -111,10 +110,8 @@ class WinnerModel:
 class EraBlendModel:
     """Geometric mean of a pooled model and a same-era model.
 
-    Eras really are edited differently (the new era most of all), but a pure
-    era model only has ~9-19 seasons behind it and calibrates badly
-    mid-season. The pooled model is the opposite: solid calibration, mushy
-    finale ranking on the new era. The geometric blend keeps most of both.
+    Era-only models rank finales better but calibrate badly on so few
+    seasons; pooled is the reverse. The blend keeps most of both.
     """
 
     model_type: str
@@ -146,9 +143,8 @@ class EraBlendModel:
 
 MIN_ERA_SEASONS = 5  # need at least this many seasons to fit an era model
 
-# only the new era gets a blended era model. tried blending all three: the new
-# era finale top1 doubled (edited genuinely differently) but old/middle got
-# worse, they share enough editing grammar that pooling wins there
+# only the new era gets a blend. tried all three: new era finale top1
+# doubled, old/middle got worse
 BLEND_ERAS = {"new"}
 
 
