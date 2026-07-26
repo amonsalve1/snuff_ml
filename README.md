@@ -1,11 +1,16 @@
-# snuffml
+![snuffml](docs/banner.png)
 
-Predicting the winner of Survivor (US) from the edit: confessional counts plus
-community edgic ratings. Started as a way to work through Machine Learning with
-PyTorch & Scikit-Learn on a dataset I actually care about, so the modeling goes
-sklearn first, then a small PyTorch model.
+Can you tell who wins Survivor just from how the show is edited? Mostly, yes.
+Confessional counts plus community edgic ratings get the eventual winner into
+the model's top 3 at 94% of finales, and make them the outright #1 pick at
+44% of them. Every prediction below is out-of-sample: the model never saw the
+season it's predicting.
 
-Two things it can do:
+![the loso backtest, one panel per season](docs/infographic.png)
+
+This started as a way to work through Machine Learning with PyTorch &
+Scikit-Learn on a dataset I actually care about, so the modeling goes sklearn
+first, then a small PyTorch model. Two things it can do:
 
 - rank every remaining player's win probability after each episode of an
   airing season
@@ -16,9 +21,9 @@ Two things it can do:
 
 ```bash
 uv sync
-uv run snuffml fetch                 # pull the survivoR2py data mirror
+uv run snuffml fetch                 # pull the survivoR data
 uv run snuffml build                 # build the feature panel
-uv run snuffml predict --season 46 --model logit
+uv run snuffml predict --season 50
 uv run snuffml backtest --season 45  # replay a season out-of-sample
 uv run snuffml study --loso          # rerun the full study (slow)
 uv run pytest -m "not slow"
@@ -72,52 +77,59 @@ from. Erika won off the lowest confessional share of any winner while the
 edit pointed at everyone else, and keeping that season in training measurably
 dragged down the fit on every other new-era season.
 
-How well does it work? Here's every season, every player's win probability
-episode by episode, winner highlighted (green = called at the finale, orange =
-top 3, red = missed):
+Some things the data taught me:
 
-![the loso backtest, one panel per season](docs/infographic.png)
+- Immunity timing matters more than immunity counts. Late-merge immunity wins
+  point at the winner in every era. Winning early in the merge is a threat
+  signal that old-era winners specifically avoided (they won less early
+  immunity than losing finalists). Biggest single gain in matched cv.
+- New-era winners basically never have a zero-confessional episode (1 of 10
+  through s50). Old-era winners had them all the time, so it's a flag with an
+  era interaction.
+- The player leading cumulative confessional share through episode 4 has
+  never won a new-era season, 0 for 10. The editors crown an early
+  frontrunner just to dethrone them around the merge or final seven.
+- The winner's original tribe over-indexes on pre-merge confessionals. Small
+  but real.
+- Demographic and current-tribe-share columns tested neutral-to-negative as
+  model inputs at this sample size, so they're built for the study but kept
+  out of the model.
 
-Leave-one-season-out over 50 seasons with the blend:
-at the finale the eventual winner is the top pick 44% of the time and in the
-top 3 94% of the time. On seasons with edgic coverage the edgic features
-roughly double the log-loss skill. The new era (S41+) is still much
-harder because the show spreads confessionals around almost evenly now. The
-r/Edgic ratings, a zero-confessional-episode flag (new-era winners basically
-never have one) and the era-blended model got the winner top-3 at all ten
-new-era finales.
+## What doesn't work yet
 
-Immunity timing turned out to matter more than immunity counts: late-merge
-immunity wins point at the winner in every era, while winning early in the
-merge is a threat signal that old-era winners specifically avoided (they won
-less early immunity than losing finalists). Those features were the single
-biggest gain in matched cv. The winner's original tribe also over-indexes on
-pre-merge confessionals, a small but real effect (`orig_tribe_over`).
-
-The best new-era tell goes the other way: the player leading cumulative
-confessional share through episode 4 has never won a new-era season (0 for
-10). The editors crown an early frontrunner just to dethrone them around
-the merge or final seven, so holding the early flag is a death sentence
-(`early_flag` x new era).
-
-Demographic and current-tribe-share columns are in the data too; they tested
-neutral-to-negative as model inputs at this sample size, so they're
-study-only.
+The misses are nearly all the same shape: a big strategist-narrator gets the
+confessional volume and outranks a jury-beloved winner (Carson over Yam Yam,
+Austin over Dee, Charlie over Kenzie). What separates those pairs is what
+other players say about them, and nothing in confessional counts or edgic
+codes captures that. Episode transcripts exist for almost every season, so a
+who-mentions-whom dataset is the obvious next data project. Old-era edgic
+(S4-S30) also survives as raw weekly ballots on the Survivor Sucks forum
+archive, but scraping thousands of forum pages is a project for another
+month.
 
 ## Layout
 
 ```
 src/snuffml/
   config.py        paths, eras, name aliases
-  data/            survivor2py mirror, edgic ingestion + scrapers
+  data/            survivoR ingestion, edgic scrapers
   features/        panel, edit, gameplay, edgic, build
   models/          sklearn_baseline, torch_seq, normalize
   eval/            splits, metrics, backtest, study
   report.py, cli.py
 tests/
+scripts/           the infographic
 ```
 
 The tests run on synthetic fixture seasons, no network needed. The one to know
 about is `test_leakage.py`: it rebuilds the features with all future episodes
 scrambled (different winner included) and asserts the past features come out
 bit-identical. If a new feature breaks that test it's peeking at the future.
+
+## Credits
+
+All the underlying data comes from communities that counted things for years
+because they love this show: Dan Oehm's [survivoR](https://github.com/doehm/survivoR)
+package and its confessional counters, [Inside Survivor](https://insidesurvivor.com)'s
+edgic articles, and the r/Edgic survey sheets. This project just does math on
+top of their work.
