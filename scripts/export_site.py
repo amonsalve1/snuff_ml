@@ -1,4 +1,10 @@
-"""Exports the loso predictions to json for the docs/ site."""
+"""Exports the loso predictions to json for the docs/ site.
+
+Reads reports/retrospective/preds_blend.parquet and
+models/blend_through_s50.joblib, writes docs/data/index.json,
+docs/data/seasons/sNN.json and docs/data/insights.json. Run
+`snuffml study --loso` and `snuffml train` first.
+"""
 
 from __future__ import annotations
 
@@ -164,8 +170,108 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
     }
 
 
+def build_insights(preds: pd.DataFrame) -> dict:
+    last = preds[preds["episode"] == preds.groupby("season")["episode"].transform("max")]
+    winners_last = last[last["is_winner"]]
+
+    flag = []
+    for s in sorted(preds[preds["season"] >= 41]["season"].unique()):
+        g = preds[(preds["season"] == s) & (preds["early_flag"] > 0)]
+        if not len(g):
+            continue
+        holder = g.iloc[-1]
+        flag.append(
+            {
+                "season": int(s),
+                "holder": str(holder["castaway"]),
+                "won": bool(g["is_winner"].any()),
+                "out": int(g["episode"].max()),
+            }
+        )
+
+    zero = (
+        winners_last.assign(era=lambda d: d["season"].map(lambda x: config.era_of(int(x))))
+        .groupby("era")["zero_any"]
+        .mean()
+        .round(3)
+        .to_dict()
+    )
+
+    imm = {}
+    for era in ["old", "middle", "new"]:
+        sub = last[last["season"].map(lambda x: config.era_of(int(x))) == era]
+        w = sub[sub["is_winner"]]
+        o = sub[~sub["is_winner"]]
+        imm[era] = {
+            "winner_late": round(float(w["imm_late_cum"].mean()), 2),
+            "other_late": round(float(o["imm_late_cum"].mean()), 2),
+            "winner_early": round(float(w["imm_early_cum"].mean()), 2),
+            "other_early": round(float(o["imm_early_cum"].mean()), 2),
+        }
+
+    era_score: dict[str, dict[str, int]] = {}
+    for s, g in preds.groupby("season"):
+        era = config.era_of(int(s))
+        era_score.setdefault(era, {"called": 0, "top3": 0, "missed": 0, "edge return": 0})
+        era_score[era][season_outcome(g)] += 1
+
+    peaks = preds.groupby(["season", "castaway_id"]).agg(
+        name=("castaway", "first"),
+        peak=("win_prob", "max"),
+        won=("is_winner", "any"),
+        out=("episode", "max"),
+        final=("win_prob", "last"),
+    ).reset_index()
+    decoys = (
+        peaks[(~peaks["won"]) & (peaks["peak"] >= 0.35)]
+        .sort_values("peak", ascending=False)
+        .head(15)
+    )
+    underdogs = peaks[peaks["won"]].sort_values("peak").head(10)
+
+    def rows(d: pd.DataFrame) -> list[dict]:
+        return [
+            {
+                "season": int(r.season),
+                "name": str(r.name),
+                "peak": round(float(r.peak), 3),
+                "final": round(float(r.final), 3),
+            }
+            for r in d.itertuples()
+        ]
+
+    return {
+        "early_flag_curse": flag,
+        "zero_conf_winners": zero,
+        "immunity": imm,
+        "era_difficulty": era_score,
+        "decoys": rows(decoys),
+        "underdogs": rows(underdogs),
+    }
+
+
+def sanity_check(preds: pd.DataFrame, out_dir: Path) -> None:
+    season_files = sorted((out_dir / "seasons").glob("s*.json"))
+    if len(season_files) != preds["season"].nunique():
+        raise SystemExit(f"expected {preds['season'].nunique()} season files, got {len(season_files)}")
+    n_rows = 0
+    for f in season_files:
+        data = json.loads(f.read_text())
+        for e_i, e in enumerate(data["episodes"]):
+            total = sum(p["probs"][e_i] for p in data["players"] if p["probs"][e_i] is not None)
+            if abs(total - 1.0) > 1e-2:
+                raise SystemExit(f"{f.name} episode {e}: probs sum to {total:.3f}")
+        n_rows += sum(sum(x is not None for x in p["probs"]) for p in data["players"])
+        if not any(p["winner"] for p in data["players"]):
+            raise SystemExit(f"{f.name}: no winner")
+    if n_rows != len(preds):
+        raise SystemExit(f"exported {n_rows} alive rows, parquet has {len(preds)}")
+    print(f"sanity ok: {len(season_files)} seasons, {n_rows} rows")
+
+
 def main() -> None:
     preds = pd.read_parquet(config.REPORTS_DIR / "retrospective" / "preds_blend.parquet")
+    # "last" aggregations below assume episode order within each player
     preds = preds.sort_values(["season", "castaway_id", "episode"]).reset_index(drop=True)
     preds["_row"] = preds.index
     blend = EraBlendModel.load(config.MODELS_DIR / "blend_through_s50.joblib")
@@ -180,6 +286,8 @@ def main() -> None:
     dump(build_index(preds), out / "index.json")
     for s in sorted(preds["season"].unique()):
         dump(build_season(preds, contrib, int(s)), out / "seasons" / f"s{int(s):02d}.json")
+    dump(build_insights(preds), out / "insights.json")
+    sanity_check(preds, out)
     total_kb = sum(f.stat().st_size for f in out.rglob("*.json")) / 1024
     print(f"wrote docs/data ({total_kb:.0f} KB)")
 
