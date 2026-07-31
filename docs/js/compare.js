@@ -4,7 +4,7 @@
 import { loadIndex, loadSeason } from "./app.js";
 import { lineChart } from "./charts.js";
 
-const ERA_COLORS = { old: "#8a877c", middle: "#E69F00", new: "#00b386" };
+const ERA_COLORS = { old: "#a89f88", middle: "#b8860b", new: "#c14e00" };
 
 export async function renderCompare(el) {
   const index = await loadIndex();
@@ -24,9 +24,9 @@ export async function renderCompare(el) {
       <p class="note">x is season progress so 13 and 16 episode seasons line up.
       the new era flattens: winners stay hidden longer.</p>
       <div class="legend">
-        <label><input type="checkbox" data-era="old" checked><span class="sw" style="background:#8a877c"></span>old (s1-20)</label>
-        <label><input type="checkbox" data-era="middle" checked><span class="sw" style="background:#E69F00"></span>middle (s21-40)</label>
-        <label><input type="checkbox" data-era="new" checked><span class="sw" style="background:#00b386"></span>new (s41+)</label>
+        <label><input type="checkbox" data-era="old" checked><span class="sw" style="background:#a89f88"></span>old (s1-20)</label>
+        <label><input type="checkbox" data-era="middle" checked><span class="sw" style="background:#b8860b"></span>middle (s21-40)</label>
+        <label><input type="checkbox" data-era="new" checked><span class="sw" style="background:#c14e00"></span>new (s41+)</label>
       </div>
       <div id="winners-chart"></div>`;
 
@@ -91,7 +91,7 @@ export async function renderCompare(el) {
           series: data.players.map((p) => ({
             name: p.name,
             values: p.probs,
-            color: p.winner ? "#00b386" : "#4d4b42",
+            color: p.winner ? "#c14e00" : "#c6bfab",
             width: p.winner ? 2.4 : 1.3,
             dim: !p.winner,
           })),

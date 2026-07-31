@@ -49,7 +49,7 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
   const series = data.players.map((p) => ({
     name: p.name,
     values: p.probs,
-    color: p.winner ? "#00b386" : "#4d4b42",
+    color: p.winner ? "#c14e00" : "#c6bfab",
     width: p.winner ? 2.6 : 1.4,
     dim: !p.winner,
   }));
