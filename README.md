@@ -76,10 +76,12 @@ Four models, pick with `--model`:
 - `gru`: per-player GRU over the episode sequence with a masked softmax over
   the season roster, averaged over seeds
 
-Season 41 is treated as an outlier: still predicted and scored, never learned
-from. Erika won off the lowest confessional share of any winner while the
-edit pointed at everyone else, and keeping that season in training measurably
-dragged down the fit on every other new-era season.
+Seasons 38 and 41 are treated as outliers: still predicted and scored, never
+learned from. Chris won season 38 from the edge of extinction after being
+voted out in episode 3, so his winner rows teach nothing real. Erika won 41
+off the lowest confessional share of any winner while the edit pointed at
+everyone else, and keeping that season in training measurably dragged down
+the fit on every other new-era season.
 
 Some things the data taught me:
 
