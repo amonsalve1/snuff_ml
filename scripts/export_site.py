@@ -102,3 +102,87 @@ def season_outcome(season_preds: pd.DataFrame) -> str:
     if rank <= 3:
         return "top3"
     return "missed"
+
+
+def build_index(preds: pd.DataFrame) -> dict:
+    seasons = []
+    for s, g in preds.groupby("season"):
+        eps = sorted(g["episode"].unique())
+        w = g[g["is_winner"]]
+        wname = str(w["castaway"].iloc[0]) if len(w) else "?"
+        wprobs = []
+        for e in eps:
+            we = w[w["episode"] == e]
+            wprobs.append(round(float(we["win_prob"].iloc[0]), 4) if len(we) else None)
+        seasons.append(
+            {
+                "season": int(s),
+                "era": config.era_of(int(s)),
+                "episodes": len(eps),
+                "winner": wname,
+                "outcome": season_outcome(g),
+                "winner_probs": wprobs,
+            }
+        )
+    labels = {k: list(v) for k, v in FEATURE_LABELS.items()}
+    return {"labels": labels, "seasons": seasons}
+
+
+def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dict:
+    g = preds[preds["season"] == season]
+    eps = sorted(g["episode"].unique())
+    players = []
+    for cid, p in g.groupby("castaway_id"):
+        p = p.sort_values("episode")
+        by_ep = p.set_index("episode")
+        boot = int(p["episode"].max())
+        probs, whys = [], []
+        for e in eps:
+            if e in by_ep.index:
+                probs.append(round(float(by_ep.loc[e, "win_prob"]), 4))
+                whys.append(top_k_why(contrib.loc[by_ep.loc[e, "_row"]]))
+            else:
+                probs.append(None)
+                whys.append(None)
+        players.append(
+            {
+                "id": str(cid),
+                "name": str(p["castaway"].iloc[0]),
+                "winner": bool(p["is_winner"].any()),
+                "boot": None if boot == max(eps) else boot,
+                "probs": probs,
+                "why": whys,
+            }
+        )
+    players.sort(key=lambda pl: (-(pl["probs"][-1] or 0), pl["name"]))
+    return {
+        "season": season,
+        "era": config.era_of(season),
+        "episodes": [int(e) for e in eps],
+        "outcome": season_outcome(g),
+        "players": players,
+    }
+
+
+def main() -> None:
+    preds = pd.read_parquet(config.REPORTS_DIR / "retrospective" / "preds_blend.parquet")
+    preds = preds.sort_values(["season", "castaway_id", "episode"]).reset_index(drop=True)
+    preds["_row"] = preds.index
+    blend = EraBlendModel.load(config.MODELS_DIR / "blend_through_s50.joblib")
+    contrib = blend_contributions(blend, preds)
+
+    out = config.PROJECT_ROOT / "docs" / "data"
+    (out / "seasons").mkdir(parents=True, exist_ok=True)
+
+    def dump(obj: dict, path: Path) -> None:
+        path.write_text(json.dumps(obj, separators=(",", ":")))
+
+    dump(build_index(preds), out / "index.json")
+    for s in sorted(preds["season"].unique()):
+        dump(build_season(preds, contrib, int(s)), out / "seasons" / f"s{int(s):02d}.json")
+    total_kb = sum(f.stat().st_size for f in out.rglob("*.json")) / 1024
+    print(f"wrote docs/data ({total_kb:.0f} KB)")
+
+
+if __name__ == "__main__":
+    main()
