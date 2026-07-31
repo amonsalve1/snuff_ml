@@ -29,8 +29,8 @@ FEATURE_LABELS: dict[str, tuple[str, str]] = {
     "premiere_share": ("strong premiere presence", "invisible premiere"),
     "late_clustering": ("airtime clustering late", "airtime fading late"),
     "conf_trend": ("rising confessional trend", "falling confessional trend"),
-    "is_female": ("model prior: female winners run quieter edits", "model prior: female winners run quieter edits"),
-    "female_x_share_cum": ("model prior: share adjusted for gender", "model prior: share adjusted for gender"),
+    "is_female": ("gender prior helps here", "gender prior hurts here"),
+    "female_x_share_cum": ("share-for-gender adjustment helps", "share-for-gender adjustment hurts"),
     "new_era_x_share_cum": ("high share in the new era", "low share in the new era"),
     "zero_any": ("no zero-confessional episodes", "has a zero-confessional episode"),
     "zero_any_x_new": ("clean sheet in the new era", "zero-confessional episode in the new era - near fatal"),
@@ -176,16 +176,17 @@ def build_insights(preds: pd.DataFrame) -> dict:
 
     flag = []
     for s in sorted(preds[preds["season"] >= 41]["season"].unique()):
-        g = preds[(preds["season"] == s) & (preds["early_flag"] > 0)]
+        # the flag freezes at episode 4, so only trust rows from there on
+        g = preds[(preds["season"] == s) & (preds["episode"] >= 4) & (preds["early_flag"] == 1)]
         if not len(g):
             continue
-        holder = g.iloc[-1]
+        holder = g[g["castaway_id"] == g.iloc[0]["castaway_id"]]
         flag.append(
             {
                 "season": int(s),
-                "holder": str(holder["castaway"]),
-                "won": bool(g["is_winner"].any()),
-                "out": int(g["episode"].max()),
+                "holder": str(holder["castaway"].iloc[0]),
+                "won": bool(holder["is_winner"].any()),
+                "out": int(holder["episode"].max()),
             }
         )
 

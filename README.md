@@ -6,6 +6,10 @@ the model's top 3 at 94% of finales, and make them the outright #1 pick at
 44% of them. Every prediction below is out-of-sample: the model never saw the
 season it's predicting.
 
+**[Explore it interactively](https://amonsalve1.github.io/snuff_ml/)**: replay
+any season episode by episode, click a player to see why the model rates them,
+compare eras, browse the decoys and hidden winners.
+
 ![the loso backtest, one panel per season](docs/infographic.png)
 
 This started as a way to work through Machine Learning with PyTorch &
