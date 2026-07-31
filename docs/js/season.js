@@ -4,6 +4,10 @@ import { loadIndex, loadSeason, navigate } from "./app.js";
 import { lineChart } from "./charts.js";
 
 const badgeClass = (o) => (o === "called" ? "called" : o === "top3" ? "top3" : "missed");
+const badgeText = (o) =>
+  o === "called" ? "called it" : o === "top3" ? "top 3" : o === "edge return" ? "edge case" : "blindsided";
+const seasonLabel = (s) =>
+  s.name && !/^\d+$/.test(s.name) ? `s${s.season} - ${s.name}` : `season ${s.season}`;
 
 export async function renderSeason(el, seasonNum, episode, playerId) {
   const [index, data] = await Promise.all([loadIndex(), loadSeason(seasonNum)]);
@@ -15,10 +19,10 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
   el.innerHTML = `
     <div class="controls">
       <select id="season-pick"></select>
-      <span class="badge ${badgeClass(data.outcome)}">${data.outcome}</span>
-      <span class="note">winner: ${meta.winner}</span>
+      <span class="badge ${badgeClass(data.outcome)}">${badgeText(data.outcome)}</span>
+      <span class="note">sole survivor: ${meta.winner}</span>
       <span class="spacer"></span>
-      <label class="note">episode <b id="ep-num">${ep}</b> / ${eps[eps.length - 1]}</label>
+      <label class="note"><span id="ep-note">episode</span> <b id="ep-num">${ep}</b> / ${eps[eps.length - 1]}</label>
     </div>
     <input id="scrub" type="range" min="0" max="${eps.length - 1}" step="1" value="${epIdx}" style="width:100%">
     <div class="layout">
@@ -36,7 +40,7 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
   for (const s of index.seasons) {
     const o = document.createElement("option");
     o.value = s.season;
-    o.textContent = `season ${s.season} (${s.era})`;
+    o.textContent = seasonLabel(s);
     if (s.season === data.season) o.selected = true;
     pick.appendChild(o);
   }
@@ -91,7 +95,7 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
     for (const p of out) {
       const row = document.createElement("div");
       row.className = "row out";
-      row.innerHTML = `<span class="name">${p.name}</span><span></span><span class="pct">out ep ${p.boot}</span>`;
+      row.innerHTML = `<span class="name">${p.name}</span><span></span><span class="pct">snuffed ep ${p.boot}</span>`;
       board.appendChild(row);
     }
   };
@@ -103,19 +107,25 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
     const rows = p.why[state.ep];
     const maxAbs = Math.max(...rows.map(([, v]) => Math.abs(v)), 0.001);
     box.hidden = false;
-    box.innerHTML = `<h3>why ${p.name}, ep ${eps[state.ep]}</h3>` + rows.map(([key, v]) => {
+    box.innerHTML = `<h3>${p.name}, ep ${eps[state.ep]}</h3>` + rows.map(([key, v]) => {
       const label = (index.labels[key] || [key, key])[v > 0 ? 0 : 1];
       const cls = v > 0 ? "up" : "down";
       return `<div class="wrow"><span>${label}</span>
         <span><span class="wbar ${cls}" style="width:${(Math.abs(v) / maxAbs) * 100}%"></span></span></div>`;
-    }).join("") + `<p class="hint">signed pushes on the model's score vs a typical alive player</p>`;
+    }).join("") + `<p class="hint">what the edit says, vs a typical player still in it</p>`;
   };
 
+  const epNote = () => {
+    el.querySelector("#ep-note").textContent =
+      state.ep === eps.length - 1 ? "final tribal, episode" : "episode";
+  };
   el.querySelector("#scrub").addEventListener("input", (evt) => {
     state.ep = parseInt(evt.target.value, 10);
     el.querySelector("#ep-num").textContent = eps[state.ep];
+    epNote();
     draw();
   });
+  epNote();
 
   draw();
 }

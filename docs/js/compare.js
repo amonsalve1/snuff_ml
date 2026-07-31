@@ -73,7 +73,7 @@ export async function renderCompare(el) {
       for (const s of index.seasons) {
         const o = document.createElement("option");
         o.value = s.season;
-        o.textContent = `season ${s.season} - ${s.winner} (${s.outcome})`;
+        o.textContent = `s${s.season} - ${s.winner} (${s.outcome === "missed" ? "blindsided" : s.outcome})`;
         sel.appendChild(o);
       }
     }

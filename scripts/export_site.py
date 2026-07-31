@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 from snuffml import config
+from snuffml.data import survivor2py
 from snuffml.models.sklearn_baseline import EraBlendModel, WinnerModel  # noqa: F401
 
 # feature -> (phrase when pushing up, phrase when pushing down)
@@ -110,7 +111,16 @@ def season_outcome(season_preds: pd.DataFrame) -> str:
     return "missed"
 
 
-def build_index(preds: pd.DataFrame) -> dict:
+def season_names() -> dict[int, str]:
+    ss = survivor2py.load_table("season_summary", fetch=False)
+    out = {}
+    for r in ss.dropna(subset=["season"]).itertuples():
+        name = str(getattr(r, "season_name", "") or "")
+        out[int(r.season)] = name.replace("Survivor: ", "").replace("Survivor ", "")
+    return out
+
+
+def build_index(preds: pd.DataFrame, names: dict[int, str]) -> dict:
     seasons = []
     for s, g in preds.groupby("season"):
         eps = sorted(g["episode"].unique())
@@ -123,6 +133,7 @@ def build_index(preds: pd.DataFrame) -> dict:
         seasons.append(
             {
                 "season": int(s),
+                "name": names.get(int(s), ""),
                 "era": config.era_of(int(s)),
                 "episodes": len(eps),
                 "winner": wname,
@@ -284,7 +295,7 @@ def main() -> None:
     def dump(obj: dict, path: Path) -> None:
         path.write_text(json.dumps(obj, separators=(",", ":")))
 
-    dump(build_index(preds), out / "index.json")
+    dump(build_index(preds, season_names()), out / "index.json")
     for s in sorted(preds["season"].unique()):
         dump(build_season(preds, contrib, int(s)), out / "seasons" / f"s{int(s):02d}.json")
     dump(build_insights(preds), out / "insights.json")
