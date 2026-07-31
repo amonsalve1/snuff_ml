@@ -53,8 +53,6 @@ FEATURE_LABELS: dict[str, tuple[str, str]] = {
     "utr_share": ("under-the-radar edit", "rarely under the radar"),
     "tone_consistency": ("consistently positive tone", "negative or mixed tone"),
     "tone_flips": ("tone flip-flops", "steady tone"),
-    "premerge_neg": ("roughed up before the merge", "clean pre-merge edit"),
-    "premerge_neg_x_new": ("pre-merge negativity, new era style", "pre-merge negativity, new era style"),
     "visibility_mean": ("high edgic visibility", "low edgic visibility"),
     "visibility_z": ("more visible than the cast", "less visible than the cast"),
 }

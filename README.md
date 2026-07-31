@@ -97,10 +97,6 @@ Some things the data taught me:
   frontrunner just to dethrone them around the merge or final seven.
 - The winner's original tribe over-indexes on pre-merge confessionals. Small
   but real.
-- Middle era winners never took a single pre-merge negative-tone episode (0
-  of 8 in the edgic data). New era winners get roughed up before the merge
-  like everyone else, the editors stopped protecting them, so the same
-  signal disqualifies in one era and means nothing in the other.
 - Demographic and current-tribe-share columns tested neutral-to-negative as
   model inputs at this sample size, so they're built for the study but kept
   out of the model.
