@@ -21,6 +21,8 @@ EDGIC_FEATURES = [
     "utr_share",
     "tone_consistency",
     "tone_flips",
+    "premerge_neg",
+    "premerge_neg_x_new",
     "visibility_mean",
     "visibility_z",
 ]
@@ -80,6 +82,26 @@ def add_edgic_features(
     flip = ((tone_sign * prev_sign) < 0).astype(float)
     df["tone_flips"] = flip.groupby([df["season"], df["castaway_id"]]).cumsum()
 
+    # negative tone before the merge. middle era winners never had one (0/8),
+    # new era winners get roughed up pre-merge like everyone else, so the
+    # interaction switches it off there. frozen once one tribe is left
+    by_ep = (
+        df[df["in_game"]]
+        .groupby(["season", "episode"])["tribe"]
+        .nunique()
+        .rename("_nt")
+        .reset_index()
+        .sort_values(["season", "episode"])
+    )
+    by_ep["_pre"] = 1.0 - (by_ep["_nt"] == 1).astype(float).groupby(by_ep["season"]).cummax()
+    df = df.merge(by_ep[["season", "episode", "_pre"]], on=["season", "episode"], how="left")
+    df["_pre"] = df["_pre"].fillna(0.0)
+    neg_pre = ((df["tone_val"] < 0) & (df["_pre"] > 0)).astype(float)
+    df["premerge_neg"] = neg_pre.groupby([df["season"], df["castaway_id"]]).cumsum().where(
+        rated_cum > 0
+    )
+    df["premerge_neg_x_new"] = (df["era"] == "new").astype(float) * df["premerge_neg"]
+
     vis_cum = df.groupby(g)["visibility"].transform(lambda s: s.expanding().mean())
     df["visibility_mean"] = vis_cum
     alive_vis = df["visibility_mean"].where(df["in_game"])
@@ -90,4 +112,4 @@ def add_edgic_features(
     covered = df["season"].isin(edgic_data.covered_seasons(ratings))
     df["edgic_available"] = (covered & (rated_cum > 0)).astype(float)
 
-    return df.drop(columns=["rating", "tone", "visibility", "tone_val", "_rated"])
+    return df.drop(columns=["rating", "tone", "visibility", "tone_val", "_rated", "_pre"])
