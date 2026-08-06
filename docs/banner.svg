@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 240" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ef4e0a"/>
+      <stop offset="0.55" stop-color="#fb8b12"/>
+      <stop offset="1" stop-color="#ffc42d"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="958" height="238" rx="14" fill="#faf6ec" stroke="#ddd6c1" stroke-width="2"/>
+  <g transform="translate(58, 48)">
+    <path fill="url(#g)" stroke="#fff" stroke-width="7" stroke-linejoin="round"
+      d="M60 6 C63 24 71 32 76 38 L83 31 C95 46 105 61 105 79 C105 106 85 126 60 126 C35 126 15 106 15 79 C15 61 25 46 37 31 L44 38 C49 32 57 24 60 6 Z"/>
+    <rect x="36" y="70" width="12" height="30" rx="2" fill="#fff"/>
+    <rect x="54" y="56" width="12" height="44" rx="2" fill="#fff"/>
+    <path fill="#fff" d="M72 42 a2 2 0 0 1 2 -2 h8 a2 2 0 0 1 2 2 v48 c0 8 4 12 9 14 c-8 3 -21 2 -21 -8 Z"/>
+  </g>
+  <text x="228" y="118" font-size="64" font-weight="800" letter-spacing="-1.5" fill="#2b2820">snuffml</text>
+  <text x="231" y="152" font-size="21" fill="#6b675c">predicting survivor winners from nothing but the edit</text>
+  <g font-size="13" font-weight="700" fill="#fff" text-anchor="middle">
+    <rect x="230" y="172" width="182" height="28" rx="14" fill="#c14e00"/>
+    <text x="321" y="190">46% called at the finale</text>
+    <rect x="422" y="172" width="162" height="28" rx="14" fill="#b8860b"/>
+    <text x="503" y="190">94% in the top three</text>
+    <rect x="594" y="172" width="158" height="28" rx="14" fill="#98937f"/>
+    <text x="673" y="190">50 seasons replayed</text>
+  </g>
+</svg>

@@ -1,9 +1,9 @@
-![snuffml](docs/banner.png)
+![snuffml](docs/banner.svg)
 
 Can you tell who wins Survivor just from how the show is edited? Mostly, yes.
 Confessional counts plus community edgic ratings get the eventual winner into
 the model's top 3 at 94% of finales, and make them the outright #1 pick at
-44% of them. Every prediction below is out-of-sample: the model never saw the
+46% of them. Every prediction below is out-of-sample: the model never saw the
 season it's predicting.
 
 **[Explore it interactively](https://amonsalve1.github.io/snuff_ml/)**: replay
