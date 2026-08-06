@@ -3,8 +3,9 @@
 Can you tell who wins Survivor just from how the show is edited? Mostly, yes.
 Confessional counts plus community edgic ratings get the eventual winner into
 the model's top 3 at 94% of finales, and make them the outright #1 pick at
-46% of them. Every prediction below is out-of-sample: the model never saw the
-season it's predicting.
+46% of them. In the new era (41-50) the winner has made the top 3 at all ten
+finales, with 4 of 10 called outright. Every prediction below is
+out-of-sample: the model never saw the season it's predicting.
 
 **[Explore it interactively](https://amonsalve1.github.io/snuff_ml/)**: replay
 any season episode by episode, click a player to see why the model rates them,
@@ -18,7 +19,7 @@ first, then a small PyTorch model. Two things it can do:
 
 - rank every remaining player's win probability after each episode of an
   airing season
-- a retrospective study over ~46 finished seasons of which edit features
+- a retrospective study over all 50 finished seasons of which edit features
   actually predict winners (output lands in `reports/retrospective/`)
 
 ## Setup
