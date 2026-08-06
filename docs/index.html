@@ -4,12 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>snuffml - does the edit know the winner?</title>
-<link rel="stylesheet" href="site.css">
+<meta name="description" content="predicting survivor winners from nothing but the edit. 50 seasons replayed episode by episode with out-of-sample probabilities.">
+<meta property="og:title" content="snuffml - does the edit know the winner?">
+<meta property="og:description" content="predicting survivor winners from nothing but the edit. 50 seasons replayed episode by episode.">
+<meta property="og:image" content="https://amonsalve1.github.io/snuff_ml/banner.png">
+<meta name="theme-color" content="#faf6ec">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="stylesheet" href="site.css?v=3">
 </head>
 <body>
 <header>
-  <h1>snuffml</h1>
+  <h1><img class="logo" src="logo.svg" alt="">snuffml</h1>
   <p class="tag">predicting survivor winners from nothing but the edit</p>
+  <div id="hero-stats" class="stats" hidden></div>
   <nav>
     <a href="#/season/50" data-view="season">seasons</a>
     <a href="#/compare" data-view="compare">compare</a>
@@ -31,6 +38,6 @@
 </footer>
 
 <div id="tooltip" hidden></div>
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=3"></script>
 </body>
 </html>

@@ -48,5 +48,24 @@ async function render() {
   }
 }
 
+async function heroStats() {
+  const el = document.getElementById("hero-stats");
+  if (!el) return;
+  const idx = await loadIndex();
+  const s = idx.seasons;
+  const called = s.filter((x) => x.outcome === "called").length;
+  const top3 = s.filter((x) => x.outcome === "called" || x.outcome === "top3").length;
+  const newEra = s.filter((x) => x.era === "new");
+  const newTop3 = newEra.filter((x) => x.outcome === "called" || x.outcome === "top3").length;
+  const tile = (big, label) => `<div class="tile"><b>${big}</b><span>${label}</span></div>`;
+  el.innerHTML =
+    tile(s.length, "seasons replayed episode by episode") +
+    tile(Math.round((called / s.length) * 100) + "%", "winners called at the finale") +
+    tile(Math.round((top3 / s.length) * 100) + "%", "winners in the model's top three") +
+    tile(`${newTop3} of ${newEra.length}`, "new era winners in the top three");
+  el.hidden = false;
+}
+
 window.addEventListener("hashchange", render);
 render();
+heroStats();

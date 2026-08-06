@@ -27,22 +27,36 @@ header, main, footer {
 }
 
 header { padding-top: 28px; }
-h1 { font-size: 40px; margin: 0; letter-spacing: -1px; display: flex; align-items: center; gap: 12px; }
-h1::before {
-  content: "";
-  width: 14px;
-  height: 26px;
-  border-radius: 50% 50% 46% 54% / 62% 62% 38% 38%;
-  background: radial-gradient(circle at 50% 78%, #f5d76e 0%, #e8940c 45%, #c14e00 78%, transparent 95%);
-  animation: flicker 2.4s infinite ease-in-out;
-  transform-origin: 50% 90%;
+h1 { font-size: 40px; margin: 0; letter-spacing: -1px; display: flex; align-items: center; gap: 10px; }
+.logo {
+  width: 42px;
+  height: auto;
+  animation: flicker 3s infinite ease-in-out;
+  transform-origin: 50% 88%;
 }
 @keyframes flicker {
-  0%, 100% { transform: scaleY(1) rotate(-1deg); opacity: 0.92; }
-  30% { transform: scaleY(1.12) rotate(1.6deg); opacity: 1; }
-  55% { transform: scaleY(0.94) rotate(-2deg); opacity: 0.85; }
-  75% { transform: scaleY(1.07) rotate(0.8deg); opacity: 0.97; }
+  0%, 100% { transform: scaleY(1) rotate(-0.6deg); }
+  30% { transform: scaleY(1.04) rotate(1deg); }
+  55% { transform: scaleY(0.97) rotate(-1.2deg); }
+  75% { transform: scaleY(1.02) rotate(0.5deg); }
 }
+@media (prefers-reduced-motion: reduce) { .logo { animation: none; } }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0 18px; }
+.stats .tile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.stats .tile b {
+  display: block;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+.stats .tile span { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.35; margin-top: 2px; }
+@media (max-width: 720px) { .stats { grid-template-columns: 1fr 1fr; } }
 h2 { font-size: 22px; margin: 24px 0 4px; }
 h3 { font-size: 16px; margin: 18px 0 4px; color: var(--muted); }
 h1, h2, h3, nav, .tag, button, label, select { text-transform: lowercase; }
