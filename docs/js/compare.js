@@ -1,10 +1,10 @@
 // compare view: all 50 winner trajectories on one chart, or two seasons side
 // by side
 
-import { loadIndex, loadSeason } from "./app.js";
-import { lineChart } from "./charts.js";
+import { loadIndex, loadSeason } from "./app.js?v=7";
+import { lineChart } from "./charts.js?v=7";
 
-const ERA_COLORS = { old: "#a89f88", middle: "#b8860b", new: "#c14e00" };
+const ERA_COLORS = { old: "var(--gray)", middle: "var(--amber)", new: "var(--flame)" };
 
 export async function renderCompare(el) {
   const index = await loadIndex();
@@ -91,7 +91,7 @@ export async function renderCompare(el) {
           series: data.players.map((p) => ({
             name: p.name,
             values: p.probs,
-            color: p.winner ? "#c14e00" : "#c6bfab",
+            color: p.winner ? "var(--flame)" : "var(--gray)",
             width: p.winner ? 2.4 : 1.3,
             dim: !p.winner,
           })),

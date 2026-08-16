@@ -10,7 +10,28 @@
 <meta property="og:image" content="https://amonsalve1.github.io/snuff_ml/banner.png">
 <meta name="theme-color" content="#faf6ec">
 <link rel="icon" type="image/svg+xml" href="logo.svg">
-<link rel="stylesheet" href="site.css?v=6">
+<link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/dm-mono-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css?v=9">
+<script>
+  // light state before first paint so the page never flashes the wrong palette.
+  // mirrors js/daypart.js - keep the thresholds in sync.
+  (function () {
+    var m = (location.hash || '').match(/^#\/season\/(\d+)(?:\/(\d+))?/);
+    var part = 'midday';
+    if (/^#\/compare/.test(location.hash)) part = 'golden';
+    else if (/^#\/insights/.test(location.hash)) part = 'morning';
+    else if (m && m[2]) {
+      // no episode count yet at boot, so assume a 13 episode season; the real
+      // count corrects this on first render without a visible jump
+      var p = Math.max(0, Math.min(1, (parseInt(m[2], 10) - 1) / 12));
+      part = p < 0.4 ? 'midday' : p < 0.7 ? 'golden' : p < 0.9 ? 'dusk' : 'night';
+    }
+    var root = document.documentElement;
+    root.dataset.daypart = part;
+    root.dataset.theme = part === 'dusk' || part === 'night' ? 'night' : 'day';
+  })();
+</script>
 </head>
 <body>
 <header>
@@ -38,6 +59,6 @@
 </footer>
 
 <div id="tooltip" hidden></div>
-<script type="module" src="js/app.js?v=6"></script>
+<script type="module" src="js/app.js?v=7"></script>
 </body>
 </html>

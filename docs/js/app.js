@@ -1,8 +1,9 @@
 // boot, hash routing and a small fetch cache shared by the views
 
-import { renderSeason } from "./season.js";
-import { renderCompare } from "./compare.js";
-import { renderInsights } from "./insights.js";
+import { renderSeason } from "./season.js?v=7";
+import { renderCompare } from "./compare.js?v=7";
+import { renderInsights } from "./insights.js?v=7";
+import { applyDaypart, COMPARE_DAYPART, INSIGHTS_DAYPART } from "./daypart.js?v=7";
 
 const cache = new Map();
 
@@ -35,8 +36,9 @@ async function render() {
   const el = document.getElementById(`view-${view}`) || document.getElementById("view-season");
   el.hidden = false;
   try {
-    if (view === "compare") await renderCompare(el);
-    else if (view === "insights") await renderInsights(el);
+    // the two views with no single episode to sit at get a fixed light
+    if (view === "compare") { applyDaypart(COMPARE_DAYPART); await renderCompare(el); }
+    else if (view === "insights") { applyDaypart(INSIGHTS_DAYPART); await renderInsights(el); }
     else {
       const season = parseInt(parts[1], 10) || 50;
       const episode = parseInt(parts[2], 10) || null;

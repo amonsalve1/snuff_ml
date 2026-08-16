@@ -1,14 +1,150 @@
+/* ---------------------------------------------------------------- type ---- */
+/* self hosted, latin only. the display face is the full fraunces build so the
+   optical size and wonk axes actually do something; it loads as optional so a
+   late swap can never reflow a chart label. */
+@font-face {
+  font-family: "Fraunces";
+  src: url("fonts/fraunces.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: optional;
+}
+@font-face {
+  font-family: "Nunito Sans";
+  src: url("fonts/nunito-sans.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Pixelify Sans";
+  src: url("fonts/pixelify.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Mono";
+  src: url("fonts/dm-mono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DM Mono";
+  src: url("fonts/dm-mono-500.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+
+/* ------------------------------------------------------------- palette ---- */
+/* registering the colours makes them animatable, so a daypart change can cross
+   fade the whole page without redrawing a single svg node. */
+@property --bg { syntax: "<color>"; inherits: true; initial-value: #faf6ec; }
+@property --panel { syntax: "<color>"; inherits: true; initial-value: #f1ecdd; }
+@property --parchment { syntax: "<color>"; inherits: true; initial-value: #f4eeda; }
+@property --parchment-line { syntax: "<color>"; inherits: true; initial-value: #d9d0b2; }
+@property --field { syntax: "<color>"; inherits: true; initial-value: #ffffff; }
+@property --ink { syntax: "<color>"; inherits: true; initial-value: #2b2820; }
+@property --muted { syntax: "<color>"; inherits: true; initial-value: #605b4b; }
+@property --faint { syntax: "<color>"; inherits: true; initial-value: #75705d; }
+@property --line { syntax: "<color>"; inherits: true; initial-value: #ddd6c1; }
+@property --flame { syntax: "<color>"; inherits: true; initial-value: #b34800; }
+@property --amber { syntax: "<color>"; inherits: true; initial-value: #8a6408; }
+@property --gray { syntax: "<color>"; inherits: true; initial-value: #c6bfab; }
+@property --good { syntax: "<color>"; inherits: true; initial-value: #4d6b31; }
+@property --bad { syntax: "<color>"; inherits: true; initial-value: #953527; }
+@property --on-flame { syntax: "<color>"; inherits: true; initial-value: #fff8f0; }
+
+/* six light states. the season scrubber walks midday -> golden -> dusk -> night;
+   compare sits at golden and insights at morning. every ink/surface pair here
+   clears wcag AA against its own background - the dark states are not the light
+   ones dimmed, they are stepped separately so numbers stay readable. */
+:root,
+:root[data-daypart="midday"] {
+  --bg: #faf6ec; --panel: #f1ecdd; --parchment: #f4eeda; --parchment-line: #d9d0b2;
+  --field: #fffdf6; --ink: #2b2820; --muted: #605b4b; --faint: #75705d;
+  --line: #ddd6c1; --flame: #b34800; --amber: #8a6408; --gray: #c6bfab;
+  --good: #4d6b31; --bad: #953527; --on-flame: #fff8f0;
+}
+:root[data-daypart="dawn"] {
+  --bg: #fdefe6; --panel: #f7e2d4; --parchment: #f9e8db; --parchment-line: #e0c6b4;
+  --field: #fff9f4; --ink: #2f2620; --muted: #665246; --faint: #7d6456;
+  --line: #e8d3c4; --flame: #b0400d; --amber: #8f6410; --gray: #cdb7a6;
+  --good: #4f6836; --bad: #9c3122; --on-flame: #fff8f0;
+}
+:root[data-daypart="morning"] {
+  --bg: #fdf5e8; --panel: #f4ebd8; --parchment: #f7f0dd; --parchment-line: #ddd2b6;
+  --field: #fffcf4; --ink: #2c2821; --muted: #615a4d; --faint: #77705e;
+  --line: #e2d9c4; --flame: #b04700; --amber: #8a6408; --gray: #c8c0ab;
+  --good: #4d6b31; --bad: #98362a; --on-flame: #fff8f0;
+}
+:root[data-daypart="golden"] {
+  --bg: #fdf0d9; --panel: #f7e5c4; --parchment: #faecd0; --parchment-line: #e2cda2;
+  --field: #fff9ec; --ink: #33291d; --muted: #63543a; --faint: #7a6947;
+  --line: #e6d2ab; --flame: #af4005; --amber: #8a6208; --gray: #cfbb95;
+  --good: #4e6630; --bad: #96331e; --on-flame: #fff8f0;
+}
+:root[data-daypart="dusk"] {
+  --bg: #2a1d17; --panel: #372619; --parchment: #3d2b1c; --parchment-line: #5a4029;
+  --field: #33231a; --ink: #f7ecdd; --muted: #c9b295; --faint: #a58f72;
+  --line: #4a3526; --flame: #ff8a33; --amber: #e8ae43; --gray: #7a6752;
+  --good: #9dc06a; --bad: #f07a5e; --on-flame: #2a1408;
+}
+:root[data-daypart="night"] {
+  --bg: #1a120d; --panel: #251a12; --parchment: #2b1e14; --parchment-line: #48331f;
+  --field: #22160f; --ink: #f9efe0; --muted: #cdb392; --faint: #a98e6c;
+  --line: #3a281c; --flame: #ff9c45; --amber: #f0b957; --gray: #6e5c48;
+  --good: #a8c974; --bad: #f4836a; --on-flame: #1f1006;
+}
+
 :root {
-  --bg: #faf6ec;
-  --panel: #f1ecdd;
-  --ink: #2b2820;
-  --muted: #6b675c;
-  --faint: #98937f;
-  --line: #ddd6c1;
-  --flame: #c14e00;
-  --amber: #b8860b;
-  --gray: #c6bfab;
-  --bad: #9f3a2e;
+  /* type */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Nunito Sans", -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-pixel: "Pixelify Sans", "Courier New", monospace;
+  --t--1: 13px;
+  --t-0: 16px;
+  --t-1: 20px;
+  --t-2: 26px;
+  --t-3: 34px;
+  --t-4: 44px;
+  /* space */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 14px;
+  --sp-4: 20px;
+  --sp-5: 32px;
+  --sp-6: 48px;
+  /* a radius language: cards are soft, chips are pills, data ends are clipped */
+  --r-card: 14px;
+  --r-chip: 999px;
+  --r-bar: 3px;
+  /* custom curves only. light is slow to change, controls are quick */
+  --ease-light: cubic-bezier(0.32, 0.06, 0.22, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 140ms;
+  --t-mid: 260ms;
+  --t-light: 900ms;
+
+  transition:
+    --bg var(--t-light) var(--ease-light),
+    --panel var(--t-light) var(--ease-light),
+    --parchment var(--t-light) var(--ease-light),
+    --parchment-line var(--t-light) var(--ease-light),
+    --field var(--t-light) var(--ease-light),
+    --ink var(--t-light) var(--ease-light),
+    --muted var(--t-light) var(--ease-light),
+    --faint var(--t-light) var(--ease-light),
+    --line var(--t-light) var(--ease-light),
+    --flame var(--t-light) var(--ease-light),
+    --amber var(--t-light) var(--ease-light),
+    --gray var(--t-light) var(--ease-light),
+    --good var(--t-light) var(--ease-light),
+    --bad var(--t-light) var(--ease-light),
+    --on-flame var(--t-light) var(--ease-light);
+}
+
+/* the light cuts instead of fading when motion is unwelcome */
+@media (prefers-reduced-motion: reduce) {
+  :root { transition: none; }
 }
 
 * { box-sizing: border-box; }
@@ -17,7 +153,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 16px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font: var(--t-0)/1.55 var(--font-sans);
+  font-variation-settings: "wght" 400;
 }
 
 header, main, footer {
@@ -27,7 +164,18 @@ header, main, footer {
 }
 
 header { padding-top: 28px; }
-h1 { font-size: 40px; margin: 0; letter-spacing: -1px; display: flex; align-items: center; gap: 10px; }
+h1 {
+  font-family: var(--font-display);
+  font-size: var(--t-4);
+  font-weight: 700;
+  /* the display face carries opsz and wonk; at this size both are the point */
+  font-variation-settings: "opsz" 96, "WONK" 1;
+  margin: 0;
+  letter-spacing: -1.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .logo {
   width: 42px;
   height: auto;
@@ -46,19 +194,34 @@ h1 { font-size: 40px; margin: 0; letter-spacing: -1px; display: flex; align-item
 .stats .tile {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   padding: 10px 14px;
 }
 .stats .tile b {
   display: block;
-  font-size: 24px;
-  letter-spacing: -0.5px;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 27px;
+  letter-spacing: -1px;
 }
 .stats .tile span { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.35; margin-top: 2px; }
 @media (max-width: 720px) { .stats { grid-template-columns: 1fr 1fr; } }
-h2 { font-size: 22px; margin: 24px 0 4px; }
-h3 { font-size: 16px; margin: 18px 0 4px; color: var(--muted); }
+h2 {
+  font-family: var(--font-display);
+  font-size: var(--t-2);
+  font-weight: 600;
+  font-variation-settings: "opsz" 48, "WONK" 1;
+  letter-spacing: -0.4px;
+  margin: var(--sp-5) 0 var(--sp-1);
+}
+h3 {
+  font-family: var(--font-display);
+  font-size: var(--t-0);
+  font-weight: 600;
+  font-variation-settings: "opsz" 24, "WONK" 1;
+  margin: 18px 0 4px;
+  color: var(--muted);
+}
 h1, h2, h3, nav, .tag, button, label, select { text-transform: lowercase; }
 .tag { color: var(--muted); margin: 2px 0 14px; }
 
@@ -79,7 +242,7 @@ footer a { color: var(--muted); }
 
 select, button, input[type="range"] { accent-color: var(--flame); }
 select {
-  background: #fff;
+  background: var(--field);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -91,11 +254,12 @@ select {
 .controls .spacer { flex: 1; }
 
 .badge {
-  font-size: 12px;
-  font-weight: 700;
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  font-weight: 600;
   padding: 2px 8px;
-  border-radius: 10px;
-  color: #fff;
+  border-radius: var(--r-chip);
+  color: var(--on-flame);
 }
 .badge.called { background: var(--flame); }
 .badge.top3 { background: var(--amber); }
@@ -105,6 +269,7 @@ select {
 .chart-wrap svg { width: 100%; height: auto; display: block; }
 
 #tooltip {
+  font-family: var(--font-mono);
   position: fixed;
   pointer-events: none;
   background: var(--ink);
@@ -134,22 +299,23 @@ select {
 .board .row .bar {
   display: block;
   height: 10px;
-  border-radius: 3px 6px 6px 3px;
+  border-radius: var(--r-bar) 6px 6px var(--r-bar);
   background: var(--gray);
   transition: width 0.25s ease;
 }
 .board .row.winner .bar { background: var(--flame); }
 .board .row.winner .name { color: var(--flame); font-weight: 600; }
-.board .row .pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.board .row .pct { text-align: right; color: var(--muted); font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
 .board .row.out { color: var(--faint); cursor: default; }
 .board .row.out .name { text-decoration: line-through; text-decoration-color: var(--line); }
 .board .row.out .pct::before { content: "~ "; color: var(--faint); }
+.board .row.out .pct { font-family: var(--font-mono); font-size: 12px; }
 .board .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .why {
-  background: #f4eeda;
+  background: var(--parchment);
   color: var(--ink);
-  border: 1px solid #d9d0b2;
+  border: 1px solid var(--parchment-line);
   border-radius: 4px 10px 6px 10px;
   box-shadow: 0 4px 14px rgba(90, 80, 50, 0.18);
   transform: rotate(-0.6deg);
@@ -161,28 +327,28 @@ select {
   margin-top: 0;
   color: var(--ink);
   font-weight: 700;
-  border-bottom: 1px solid #d9d0b2;
+  border-bottom: 1px solid var(--parchment-line);
   padding-bottom: 6px;
 }
 .why .heat {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 1px dashed #d9d0b2;
+  border-bottom: 1px dashed var(--parchment-line);
   padding-bottom: 6px;
   margin-bottom: 8px;
   font-weight: 700;
 }
-.why .heat b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.why .heat b { font-family: var(--font-mono); font-weight: 500; font-size: 20px; }
 .why .heat b.pos { color: var(--flame); }
 .why .heat b.neg { color: var(--bad); }
 .why select { margin-left: 4px; font-size: 12px; padding: 2px 4px; }
 .why .wrow { display: grid; grid-template-columns: 1fr 90px; gap: 8px; align-items: center; margin: 6px 0; }
 .why .wrow > span:last-child { display: block; }
 .why .wbar { display: block; height: 8px; border-radius: 4px; }
-.why .up { background: #5a7d3b; justify-self: start; }
+.why .up { background: var(--good); justify-self: start; }
 .why .down { background: var(--bad); justify-self: start; }
-.why .hint { color: var(--faint); font-size: 12px; }
+.why .hint { color: var(--muted); font-size: 12px; }
 
 .duel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; align-items: start; }
 .duel .note, .duel-foot { grid-column: 1 / -1; }
@@ -195,7 +361,7 @@ select {
 table { border-collapse: collapse; font-size: 14px; width: 100%; margin: 8px 0 18px; }
 th, td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--line); }
 th { color: var(--muted); font-weight: 600; }
-td.num { font-variant-numeric: tabular-nums; }
+td.num { font-family: var(--font-mono); font-size: 13px; }
 tr.link { cursor: pointer; }
 tr.link:hover td { color: var(--flame); }
 

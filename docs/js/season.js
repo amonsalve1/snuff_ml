@@ -1,7 +1,8 @@
 // season explorer: trajectory chart, episode scrubber, leaderboard, why panel
 
-import { loadIndex, loadSeason, navigate } from "./app.js";
-import { lineChart } from "./charts.js";
+import { loadIndex, loadSeason, navigate } from "./app.js?v=7";
+import { lineChart } from "./charts.js?v=7";
+import { applyDaypart, daypartForEpisode } from "./daypart.js?v=7";
 
 const badgeClass = (o) => (o === "called" ? "called" : o === "top3" ? "top3" : "missed");
 const badgeText = (o) =>
@@ -50,7 +51,7 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
   const series = data.players.map((p) => ({
     name: p.name,
     values: p.probs,
-    color: p.winner ? "#c14e00" : "#c6bfab",
+    color: p.winner ? "var(--flame)" : "var(--gray)",
     width: p.winner ? 2.6 : 1.4,
     dim: !p.winner,
   }));
@@ -186,13 +187,19 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
     el.querySelector("#ep-note").textContent =
       state.ep === eps.length - 1 ? "final tribal, episode" : "episode";
   };
+  // the light follows the season: flat midday at the premiere, golden around
+  // the merge, dark by final tribal
+  const lightFor = () => applyDaypart(daypartForEpisode(state.ep, eps.length));
+
   el.querySelector("#scrub").addEventListener("input", (evt) => {
     state.ep = parseInt(evt.target.value, 10);
     el.querySelector("#ep-num").textContent = eps[state.ep];
     epNote();
+    lightFor();
     draw();
   });
   epNote();
+  lightFor();
 
   draw();
 }

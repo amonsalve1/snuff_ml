@@ -23,13 +23,13 @@ export function lineChart(container, { xs, series, yMax = null, xLabel = null, o
 
   // grid + y labels
   for (const v of [0, 0.25, 0.5].filter((v) => v < maxVal)) {
-    svg.appendChild(el("line", { x1: PAD.l, x2: W - PAD.r, y1: y(v), y2: y(v), stroke: "#e6dfc9", "stroke-width": 1 }));
-    const t = el("text", { x: PAD.l - 6, y: y(v) + 4, "text-anchor": "end", fill: "#98937f", "font-size": 11 });
+    svg.appendChild(el("line", { x1: PAD.l, x2: W - PAD.r, y1: y(v), y2: y(v), stroke: "var(--line)", "stroke-width": 1 }));
+    const t = el("text", { x: PAD.l - 6, y: y(v) + 4, "text-anchor": "end", fill: "var(--faint)", "font-size": 11 });
     t.textContent = v === 0 ? "0" : `${v * 100}%`;
     svg.appendChild(t);
   }
   if (xLabel) {
-    const t = el("text", { x: W - PAD.r, y: H - 6, "text-anchor": "end", fill: "#98937f", "font-size": 11 });
+    const t = el("text", { x: W - PAD.r, y: H - 6, "text-anchor": "end", fill: "var(--faint)", "font-size": 11 });
     t.textContent = xLabel;
     svg.appendChild(t);
   }
@@ -70,7 +70,7 @@ export function lineChart(container, { xs, series, yMax = null, xLabel = null, o
     }
   }
 
-  const cross = el("line", { y1: PAD.t, y2: H - PAD.b, stroke: "#6b675c", "stroke-width": 1, opacity: 0 });
+  const cross = el("line", { y1: PAD.t, y2: H - PAD.b, stroke: "var(--muted)", "stroke-width": 1, opacity: 0 });
   svg.appendChild(cross);
 
   const hit = el("rect", { x: 0, y: 0, width: W, height: H, fill: "transparent" });
@@ -100,7 +100,7 @@ export function lineChart(container, { xs, series, yMax = null, xLabel = null, o
       if (d < bestDist) { bestDist = d; best = s; }
     }
     for (const [s, node] of lines) {
-      node.setAttribute("stroke", best && s.name === best.name ? "#b8860b" : s.color);
+      node.setAttribute("stroke", best && s.name === best.name ? "var(--amber)" : s.color);
     }
     if (best) {
       tooltip.hidden = false;
