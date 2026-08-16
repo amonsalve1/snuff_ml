@@ -1,8 +1,8 @@
 // season explorer: trajectory chart, episode scrubber, leaderboard, why panel
 
-import { loadIndex, loadSeason, navigate } from "./app.js?v=7";
-import { lineChart } from "./charts.js?v=7";
-import { applyDaypart, daypartForEpisode } from "./daypart.js?v=7";
+import { loadIndex, loadSeason, navigate, scene } from "./app.js?v=16";
+import { lineChart } from "./charts.js?v=16";
+import { applyDaypart, daypartForEpisode } from "./daypart.js?v=16";
 
 const badgeClass = (o) => (o === "called" ? "called" : o === "top3" ? "top3" : "missed");
 const badgeText = (o) =>
@@ -191,15 +191,29 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
   // the merge, dark by final tribal
   const lightFor = () => applyDaypart(daypartForEpisode(state.ep, eps.length));
 
+  // the beach gets the cast: a torch each, lit while they are still in it, and
+  // the flame sized by win probability. scrubbing walks the camera down it.
+  const lightScene = () => {
+    if (!scene) return;
+    scene.setProgress(eps.length > 1 ? state.ep / (eps.length - 1) : 0);
+    scene.setTorches(data.players.map((p) => ({
+      name: p.name,
+      prob: p.probs[state.ep] ?? 0,
+      out: p.probs[state.ep] == null,
+    })));
+  };
+
   el.querySelector("#scrub").addEventListener("input", (evt) => {
     state.ep = parseInt(evt.target.value, 10);
     el.querySelector("#ep-num").textContent = eps[state.ep];
     epNote();
     lightFor();
+    lightScene();
     draw();
   });
   epNote();
   lightFor();
+  lightScene();
 
   draw();
 }

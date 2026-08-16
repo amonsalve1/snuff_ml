@@ -1,9 +1,27 @@
 // boot, hash routing and a small fetch cache shared by the views
 
-import { renderSeason } from "./season.js?v=7";
-import { renderCompare } from "./compare.js?v=7";
-import { renderInsights } from "./insights.js?v=7";
-import { applyDaypart, COMPARE_DAYPART, INSIGHTS_DAYPART } from "./daypart.js?v=7";
+import { renderSeason } from "./season.js?v=16";
+import { renderCompare } from "./compare.js?v=16";
+import { renderInsights } from "./insights.js?v=16";
+import { applyDaypart, COMPARE_DAYPART, INSIGHTS_DAYPART, onDaypartChange, currentDaypart } from "./daypart.js?v=16";
+import { createScene } from "./scene.js?v=16";
+
+// the island behind the page. it follows the daypart on its own, and the season
+// view hands it the cast so the torches mean something.
+export let scene = null;
+try {
+  const canvas = document.getElementById("scene");
+  if (canvas) {
+    scene = createScene(canvas);
+    scene.setDaypart(currentDaypart());
+    onDaypartChange((p) => scene.setDaypart(p));
+    scene.start();
+    requestAnimationFrame(() => canvas.classList.add("lit"));
+  }
+} catch (err) {
+  // a backdrop is never worth breaking the site over
+  console.warn("scene off:", err.message);
+}
 
 const cache = new Map();
 
@@ -37,6 +55,8 @@ async function render() {
   el.hidden = false;
   try {
     // the two views with no single episode to sit at get a fixed light
+    // the beach belongs to the season view; the other two get an empty one
+    if (view !== "season" && scene) { scene.setTorches([]); scene.setProgress(0); }
     if (view === "compare") { applyDaypart(COMPARE_DAYPART); await renderCompare(el); }
     else if (view === "insights") { applyDaypart(INSIGHTS_DAYPART); await renderInsights(el); }
     else {

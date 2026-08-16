@@ -149,6 +149,31 @@
 
 * { box-sizing: border-box; }
 
+/* the island. a band in the page rather than a wash behind it, so it can never
+   land under a number: the beach sits between the header and the data, the
+   torch line reads as the cast, and scrubbing pans the camera along it. */
+#scene {
+  display: block;
+  width: 100%;
+  max-width: 1180px;
+  height: clamp(150px, 23vh, 230px);
+  margin: 4px auto 0;
+  border-radius: var(--r-card);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 600ms var(--ease-out);
+}
+#scene.lit { opacity: 1; }
+@media (max-width: 720px) { #scene { height: 130px; border-radius: 0; } }
+
+/* with a scene under the page, the reading column becomes a sheet of paper
+   lying on the beach: solid where the data is, island showing at the margins.
+   this is the whole legibility contract - atmosphere in the chrome, never
+   under a number. */
+header, main, footer { position: relative; }
+main > section { position: relative; }
+
+
 body {
   margin: 0;
   background: var(--bg);
