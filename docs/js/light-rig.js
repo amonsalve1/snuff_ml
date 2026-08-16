@@ -66,7 +66,7 @@ export function lightFor(part, w, h) {
     z: rig.z,
     // a sun barely falls off across a beach this size; the night rig is close
     // enough that it does, which is what makes the torches read as the source
-    radius: part === "night" ? 420 : 1400,
+    radius: part === "night" ? Math.max(420, w * 0.62) : Math.max(1400, w * 1.2),
     color: rig.color,
     ambient: rig.ambient,
     intensity: rig.intensity,

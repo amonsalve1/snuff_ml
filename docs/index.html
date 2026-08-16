@@ -12,7 +12,7 @@
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/dm-mono-400.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="site.css?v=16">
+<link rel="stylesheet" href="site.css?v=18">
 <script>
   // light state before first paint so the page never flashes the wrong palette.
   // mirrors js/daypart.js - keep the thresholds in sync.
@@ -34,7 +34,8 @@
 </script>
 </head>
 <body>
-<header>
+<canvas id="scene" aria-hidden="true"></canvas>
+<header class="plank">
   <h1><img class="logo" src="logo.svg" alt="">snuffml</h1>
   <p class="tag">predicting survivor winners from nothing but the edit</p>
   <div id="hero-stats" class="stats" hidden></div>
@@ -45,15 +46,13 @@
   </nav>
 </header>
 
-<canvas id="scene" aria-hidden="true"></canvas>
-
-<main>
+<main class="plank">
   <section id="view-season" hidden></section>
   <section id="view-compare" hidden></section>
   <section id="view-insights" hidden></section>
 </main>
 
-<footer>
+<footer class="plank">
   <p>every probability is out-of-sample: the model never saw the season it's
   predicting (leave-one-season-out). the "why" panels use the final trained
   model's coefficients. built from confessional counts and community edgic
@@ -61,6 +60,6 @@
 </footer>
 
 <div id="tooltip" hidden></div>
-<script type="module" src="js/app.js?v=16"></script>
+<script type="module" src="js/app.js?v=18"></script>
 </body>
 </html>
