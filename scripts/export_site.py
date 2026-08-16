@@ -88,6 +88,26 @@ def blend_contributions(blend: EraBlendModel, rows: pd.DataFrame) -> pd.DataFram
     return contrib
 
 
+def loso_contributions(preds: pd.DataFrame) -> pd.DataFrame:
+    """Contributions from the same held-out model that made each prediction.
+
+    The site shows loso probabilities, so explaining them with the final
+    model would have the bars disagreeing with the number above them. One
+    refit per season, same as the study.
+    """
+    from snuffml.features import build as build_mod
+    from snuffml.models.sklearn_baseline import train_blend, training_frame
+
+    rows = training_frame(build_mod.load_features())
+    out = []
+    for season in sorted(preds["season"].unique()):
+        held = preds[preds["season"] == season]
+        model = train_blend(rows[rows["season"] != season])
+        out.append(blend_contributions(model, held))
+        print(f"  loso contributions s{season}", flush=True)
+    return pd.concat(out).reindex(preds.index)
+
+
 def top_k_why(contrib_row: pd.Series, k: int = 3) -> list[list]:
     row = contrib_row[[c for c in contrib_row.index if not c.startswith("era_")]]
     row = row[row.abs() > 1e-4].sort_values()
@@ -286,8 +306,7 @@ def main() -> None:
     # "last" aggregations below assume episode order within each player
     preds = preds.sort_values(["season", "castaway_id", "episode"]).reset_index(drop=True)
     preds["_row"] = preds.index
-    blend = EraBlendModel.load(config.MODELS_DIR / "blend_through_s50.joblib")
-    contrib = blend_contributions(blend, preds)
+    contrib = loso_contributions(preds)
 
     out = config.PROJECT_ROOT / "docs" / "data"
     (out / "seasons").mkdir(parents=True, exist_ok=True)

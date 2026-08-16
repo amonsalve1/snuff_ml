@@ -155,7 +155,7 @@ select {
   transform: rotate(-0.6deg);
   padding: 14px 16px;
   font-size: 14px;
-  margin-top: 14px;
+  margin: 0 0 18px;
 }
 .why h3 {
   margin-top: 0;
@@ -164,12 +164,33 @@ select {
   border-bottom: 1px solid #d9d0b2;
   padding-bottom: 6px;
 }
+.why .heat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px dashed #d9d0b2;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.why .heat b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.why .heat b.pos { color: var(--flame); }
+.why .heat b.neg { color: var(--bad); }
+.why select { margin-left: 4px; font-size: 12px; padding: 2px 4px; }
 .why .wrow { display: grid; grid-template-columns: 1fr 90px; gap: 8px; align-items: center; margin: 6px 0; }
 .why .wrow > span:last-child { display: block; }
 .why .wbar { display: block; height: 8px; border-radius: 4px; }
 .why .up { background: #5a7d3b; justify-self: start; }
 .why .down { background: var(--bad); justify-self: start; }
 .why .hint { color: var(--faint); font-size: 12px; }
+
+.duel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; align-items: start; }
+.duel .note, .duel-foot { grid-column: 1 / -1; }
+.duel .note { margin: 0 0 2px; font-weight: 600; color: var(--ink); }
+.duel .why { margin: 0; }
+.duel .why:nth-of-type(2) { transform: rotate(0.5deg); }
+.duel-foot { margin-top: 2px; }
+@media (max-width: 720px) { .duel { grid-template-columns: 1fr; } }
 
 table { border-collapse: collapse; font-size: 14px; width: 100%; margin: 8px 0 18px; }
 th, td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--line); }
