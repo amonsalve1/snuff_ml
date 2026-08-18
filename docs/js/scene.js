@@ -13,14 +13,14 @@
 //   - reduced motion paints one still frame and stops.
 //   - hidden tab cancels the loop.
 
-import { bake, drawSprite } from "./pixel.js?v=18";
-import { PALETTE, SPRITES, RELIEF } from "./jungle-sprites.js?v=18";
-import { lightFor } from "./light-rig.js?v=18";
-import { castShadow, shadowAlphaFor } from "./shadow.js?v=18";
-import { drawSea, drawSand } from "./water.js?v=18";
+import { bake, drawSprite } from "./pixel.js?v=19";
+import { PALETTE, SPRITES, RELIEF } from "./jungle-sprites.js?v=19";
+import { lightFor } from "./light-rig.js?v=19";
+import { castShadow, shadowAlphaFor } from "./shadow.js?v=19";
+import { drawSea, drawSand } from "./water.js?v=19";
 import {
   CREATURE_SPRITES, EXTRA_PALETTE, CREATURE_RELIEF, createWildlife,
-} from "./wildlife.js?v=18";
+} from "./wildlife.js?v=19";
 
 const DPR_CAP = 2;
 const WORLD_H = 1.55; // world is this many viewports tall

@@ -1,76 +1,84 @@
 // the sun and the fire over the island, one rig per daypart.
 //
-// adapted from the tomatte farm rig, with the cool end rewritten. dusk and
-// night there are magenta and blue, which fought the ember palette, so here the
-// light drops to the beach and turns orange instead: after sunset the only
-// thing lighting the scene is the torches, which is the whole point of the show.
+// rigs are defined by an ELEVATION and an AZIMUTH, not by a position, because
+// the sun is a parallel light and the whole point of a daypart is the angle it
+// comes in at. the old rigs parked a point light a few thousand pixels off the
+// top of the frame, which sounds like a sun but is not: normalised, that put
+// every daypart within 5 degrees of the horizon, so a front facing pixel got
+// the same n.l of 0.08 at noon as at dusk and the art rendered at about a third
+// of its authored brightness all day. elevation here is the real thing.
 //
-// x is a fraction of canvas width, y a multiple of canvas height (negative is
-// above the band, so the light is off canvas where a sun actually is). z is the
-// height the shadow projection divides by, so a low light rakes long shadows
-// sideways and a high one drops them straight down.
+// az is where the light comes FROM, measured across the frame: 0 is hard right,
+// 180 is hard left. so the sun rises on the left at dawn and sets on the right,
+// and the shadows and the sun path on the water follow it for free.
 
-export const RIGS = {
-  dawn: {
-    x: 0.84, y: -0.55, z: 110,
-    color: [1.0, 0.78, 0.66],
-    ambient: [0.26, 0.22, 0.21],
-    intensity: 0.86,
-    stretch: -2.4,
-  },
-  morning: {
-    x: 0.84, y: -1.3, z: 210,
-    color: [1.0, 0.95, 0.84],
-    ambient: [0.30, 0.29, 0.27],
-    intensity: 0.95,
-    stretch: -1.15,
-  },
-  midday: {
-    x: 0.8, y: -2.2, z: 320,
-    color: [1.0, 0.99, 0.93],
-    ambient: [0.32, 0.31, 0.30],
-    intensity: 1.02,
-    stretch: -0.35,
-  },
-  golden: {
-    x: 0.86, y: -0.7, z: 130,
-    color: [1.0, 0.82, 0.55],
-    ambient: [0.27, 0.23, 0.21],
-    intensity: 0.96,
-    stretch: -2.1,
-  },
-  // sun is basically gone, the sky still holds a little heat
-  dusk: {
-    x: 0.9, y: -0.32, z: 88,
-    color: [1.0, 0.68, 0.42],
-    ambient: [0.22, 0.18, 0.16],
-    intensity: 0.72,
-    stretch: -3.1,
-  },
-  // the light source is now the torch line itself: low, warm and close, so
-  // everything is lit from the fire rather than from above
-  night: {
-    x: 0.5, y: 0.72, z: 46,
-    color: [1.0, 0.62, 0.28],
-    ambient: [0.17, 0.13, 0.11],
-    intensity: 0.58,
-    stretch: -1.0,
-  },
+const DEG = Math.PI / 180;
+
+const SUNS = {
+  //        elevation, azimuth
+  dawn:    { el: 10, az: 162, color: [1.0, 0.76, 0.62], ambient: [0.23, 0.20, 0.21], intensity: 0.92 },
+  morning: { el: 40, az: 140, color: [1.0, 0.94, 0.82], ambient: [0.25, 0.25, 0.24], intensity: 0.88 },
+  midday:  { el: 72, az: 62,  color: [1.0, 0.99, 0.94], ambient: [0.26, 0.26, 0.25], intensity: 0.85 },
+  golden:  { el: 15, az: 20,  color: [1.0, 0.80, 0.50], ambient: [0.24, 0.20, 0.19], intensity: 1.00 },
+  dusk:    { el: 7,  az: 8,   color: [1.0, 0.62, 0.36], ambient: [0.20, 0.16, 0.16], intensity: 0.86 },
 };
 
+// after dark the sun is gone and the torch line is the only source, so night
+// stays a POSITIONAL light: it has to fall off, or the far end of the beach
+// would be as lit as the fire itself.
+const NIGHT = {
+  x: 0.5, y: 0.62, z: 60,
+  color: [1.0, 0.62, 0.28],
+  ambient: [0.15, 0.11, 0.10],
+  intensity: 1.35,
+  stretch: -1.0,
+};
+
+function dirFor(el, az) {
+  const e = el * DEG;
+  const a = az * DEG;
+  const ce = Math.cos(e);
+  // points from the ground toward the light. canvas y grows downward, so a
+  // light above the frame is negative y.
+  return [ce * Math.cos(a), -ce * Math.sin(a), Math.sin(e)];
+}
+
+export const RIGS = SUNS;
+
 export function lightFor(part, w, h) {
-  const rig = RIGS[part] || RIGS.midday;
+  if (part === "night") {
+    return {
+      x: w * NIGHT.x,
+      y: h * NIGHT.y,
+      z: NIGHT.z,
+      radius: Math.max(420, w * 0.62),
+      color: NIGHT.color,
+      ambient: NIGHT.ambient,
+      intensity: NIGHT.intensity,
+      stretch: NIGHT.stretch,
+      part,
+      key: "night",
+    };
+  }
+  const rig = SUNS[part] || SUNS.midday;
+  const dir = dirFor(rig.el, rig.az);
+  // shadows lie opposite the light and stretch as 1/tan(elevation), so a low
+  // sun rakes them across the sand and a high one drops them at its feet. that
+  // also drives the sun path on the water, which reads lowness off the stretch.
+  const stretch = -dir[0] / Math.max(0.08, dir[2]);
   return {
-    x: w * rig.x,
-    y: h * rig.y,
-    z: rig.z,
-    // a sun barely falls off across a beach this size; the night rig is close
-    // enough that it does, which is what makes the torches read as the source
-    radius: part === "night" ? Math.max(420, w * 0.62) : Math.max(1400, w * 1.2),
+    // the sun sits on the side it lights from, which is what the specular path
+    // on the water aims at
+    x: w * (0.5 + 0.46 * dir[0]),
+    y: -h * 0.6,
+    z: h,
+    radius: Math.max(1400, w * 1.2),
+    dir,
     color: rig.color,
     ambient: rig.ambient,
     intensity: rig.intensity,
-    stretch: rig.stretch,
+    stretch,
     part,
+    key: part,
   };
 }

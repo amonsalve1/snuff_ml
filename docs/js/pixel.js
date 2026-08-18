@@ -229,16 +229,29 @@ function rigKey(light) {
 export function shade(sprite, light, relief = 1, sx = 0, sy = 0, scale = 1) {
   // one light vector for the whole sprite. the error across 30px is invisible
   // and it turns a per pixel normalise into a per sprite one.
-  const cx = sx + (sprite.w * scale) / 2;
-  const cy = sy + (sprite.h * scale) / 2;
-  let dx = light.x - cx;
-  let dy = light.y - cy;
-  const dist = Math.hypot(dx, dy) || 1;
-  let dz = light.z;
-  const len = Math.hypot(dx, dy, dz) || 1;
-  dx /= len;
-  dy /= len;
-  dz /= len;
+  let dx, dy, dz, dist;
+  if (light.dir) {
+    // a sun: parallel rays, so every sprite takes the same direction and the
+    // same energy. this is the only way an elevation angle means anything. the
+    // positional path below, used with a sun parked far off screen, put every
+    // rig within 5 degrees of the horizon and rendered the art at a third of
+    // its authored brightness at every daypart.
+    dx = light.dir[0];
+    dy = light.dir[1];
+    dz = light.dir[2];
+    dist = 0;
+  } else {
+    const cx = sx + (sprite.w * scale) / 2;
+    const cy = sy + (sprite.h * scale) / 2;
+    dx = light.x - cx;
+    dy = light.y - cy;
+    dist = Math.hypot(dx, dy) || 1;
+    dz = light.z;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    dx /= len;
+    dy /= len;
+    dz /= len;
+  }
 
   const key =
     sprite.id + "|" + rigKey(light) + "|" + relief + "#" +
@@ -261,7 +274,10 @@ export function shade(sprite, light, relief = 1, sx = 0, sy = 0, scale = 1) {
   const img = ctx.createImageData(sprite.w, sprite.h);
 
   // one falloff for the whole sprite, same reasoning as the light vector
-  const atten = light.intensity / (1 + (dist * dist) / (light.radius * light.radius));
+  // a sun does not fall off across a beach; a torch very much does
+  const atten = light.dir
+    ? light.intensity
+    : light.intensity / (1 + (dist * dist) / (light.radius * light.radius));
   const lr = light.color[0];
   const lg = light.color[1];
   const lb = light.color[2];
@@ -299,12 +315,14 @@ export function shade(sprite, light, relief = 1, sx = 0, sy = 0, scale = 1) {
     // then fade toward a constant key by relief
     diff = 0.74 * (1 - relief) + relief * diff;
 
-    let rim = relief <= 0 ? 0 : (nx * rx + ny * ry) * relief;
-    rim = rim > 0 ? rim * rim * rim : 0;
+    // relief scales the rim AFTER the cube. inside it, relief 0.35 kept 4% of
+    // its rim and relief 0.1 kept 0.1%, so everything soft simply had no edge.
+    let rim = nx * rx + ny * ry;
+    rim = rim > 0 ? rim * rim * rim * relief : 0;
 
     const occ = O[p];
     const kd = diff * atten;
-    const kr = rim * 0.42 * atten;
+    const kr = rim * 0.62 * atten;
 
     // ao occludes the fill, never the key. a crevice is shielded from sky
     // light, direct sun lands on it anyway. diffuse and rim both ride the

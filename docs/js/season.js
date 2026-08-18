@@ -1,8 +1,8 @@
 // season explorer: trajectory chart, episode scrubber, leaderboard, why panel
 
-import { loadIndex, loadSeason, navigate, scene } from "./app.js?v=18";
-import { lineChart } from "./charts.js?v=18";
-import { applyDaypart, daypartForEpisode } from "./daypart.js?v=18";
+import { loadIndex, loadSeason, navigate, scene } from "./app.js?v=19";
+import { lineChart } from "./charts.js?v=19";
+import { applyDaypart, daypartForEpisode } from "./daypart.js?v=19";
 
 const badgeClass = (o) => (o === "called" ? "called" : o === "top3" ? "top3" : "missed");
 const badgeText = (o) =>
