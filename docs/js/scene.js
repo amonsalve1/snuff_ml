@@ -13,14 +13,14 @@
 //   - reduced motion paints one still frame and stops.
 //   - hidden tab cancels the loop.
 
-import { bake, drawSprite } from "./pixel.js?v=19";
-import { PALETTE, SPRITES, RELIEF } from "./jungle-sprites.js?v=19";
-import { lightFor } from "./light-rig.js?v=19";
-import { castShadow, shadowAlphaFor } from "./shadow.js?v=19";
-import { drawSea, drawSand } from "./water.js?v=19";
+import { bake, drawSprite } from "./pixel.js?v=23";
+import { PALETTE, SPRITES, RELIEF } from "./jungle-sprites.js?v=23";
+import { lightFor } from "./light-rig.js?v=23";
+import { castShadow, shadowAlphaFor } from "./shadow.js?v=23";
+import { drawSea, drawSand } from "./water.js?v=23";
 import {
   CREATURE_SPRITES, EXTRA_PALETTE, CREATURE_RELIEF, createWildlife,
-} from "./wildlife.js?v=19";
+} from "./wildlife.js?v=23";
 
 const DPR_CAP = 2;
 const WORLD_H = 1.55; // world is this many viewports tall
@@ -54,6 +54,10 @@ export function createScene(canvas) {
     w: 0, h: 0, worldW: 0, worldH: 0, dpr: 1,
     light: null, still: null, stillKey: "", layout: null,
     last: performance.now(), raf: 0, running: false, glow: null,
+    // reused every frame so painting allocates nothing
+    seaRect: { x: 0, y: 0, w: 0, h: 0 },
+    sandRect: { x: 0, y: 0, w: 0, h: 0 },
+    litLights: [],
   };
 
   // ---- layout -------------------------------------------------------------
@@ -106,8 +110,9 @@ export function createScene(canvas) {
     g.imageSmoothingEnabled = false;
 
     const L = st.layout, light = st.light;
-    drawSand(g, { x: 0, y: L.sand, w: st.worldW, h: st.worldH - L.sand }, light, 0);
-
+    // no sand here any more: it runs up and drains every frame, so it is drawn
+    // live underneath this layer. the still is just props and their shadows on
+    // a clear canvas.
     const shadowy = shadowAlphaFor(light) > 0.2;
     for (const p of L.props) {
       const b = baked[p.s];
@@ -136,6 +141,22 @@ export function createScene(canvas) {
     g.fillRect(0, 0, size, size);
     st.glow = c;
     return c;
+  }
+
+  // flat [x, strength, ...] for water.js to reflect. refilled in place; never
+  // rebuilt, so a frame still allocates nothing.
+  function litLights() {
+    const out = st.litLights;
+    out.length = 0;
+    const list = st.torches;
+    if (!list.length) return out;
+    const gap = st.worldW / (list.length + 1);
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].out) continue;
+      const heat = Math.max(0.12, Math.min(1, list[i].prob * list.length));
+      out.push(gap * (i + 1) + 8, 0.35 + heat * 0.65);
+    }
+    return out;
   }
 
   // one torch per player: lit while they are in it, flame sized by win
@@ -214,7 +235,13 @@ export function createScene(canvas) {
     g.translate(-Math.round(camX), -Math.round(camY));
 
     const L = st.layout;
-    drawSea(g, { x: 0, y: L.seaTop, w: st.worldW, h: L.sand - L.seaTop }, st.light, t);
+    const sea = st.seaRect, sand = st.sandRect;
+    sea.x = 0; sea.y = L.seaTop; sea.w = st.worldW; sea.h = L.sand - L.seaTop;
+    sand.x = 0; sand.y = L.sand; sand.w = st.worldW; sand.h = st.worldH - L.sand;
+    drawSea(g, sea, st.light, t);
+    // the fires get reflected in the wet sand, which is the whole reason the
+    // torch line reads as fire after dark
+    drawSand(g, sand, st.light, t, litLights());
     if (st.still) g.drawImage(st.still, 0, 0, st.worldW, st.worldH);
     drawCreatures(g);
     drawTorches(g, now);

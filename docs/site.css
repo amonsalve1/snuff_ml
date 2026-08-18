@@ -43,7 +43,7 @@
 @property --field { syntax: "<color>"; inherits: true; initial-value: #ffffff; }
 @property --ink { syntax: "<color>"; inherits: true; initial-value: #2b2820; }
 @property --muted { syntax: "<color>"; inherits: true; initial-value: #605b4b; }
-@property --faint { syntax: "<color>"; inherits: true; initial-value: #75705d; }
+@property --faint { syntax: "<color>"; inherits: true; initial-value: #6b6755; }
 @property --line { syntax: "<color>"; inherits: true; initial-value: #ddd6c1; }
 @property --flame { syntax: "<color>"; inherits: true; initial-value: #b34800; }
 @property --amber { syntax: "<color>"; inherits: true; initial-value: #8a6408; }
@@ -63,28 +63,28 @@
 :root[data-daypart="midday"] {
   --plank: #eee8d6; --plank-grain: #e0d8c2; --plank-edge: #c9bfa2;
   --bg: #faf6ec; --panel: #f1ecdd; --parchment: #f4eeda; --parchment-line: #d9d0b2;
-  --field: #fffdf6; --ink: #2b2820; --muted: #605b4b; --faint: #75705d;
-  --line: #ddd6c1; --flame: #b34800; --amber: #8a6408; --gray: #c6bfab;
+  --field: #fffdf6; --ink: #2b2820; --muted: #605b4b; --faint: #6b6755;
+  --line: #ddd6c1; --flame: #af4600; --amber: #8a6408; --gray: #c6bfab;
   --good: #4d6b31; --bad: #953527; --on-flame: #fff8f0;
 }
 :root[data-daypart="dawn"] {
   --plank: #f3ded0; --plank-grain: #e6cdbb; --plank-edge: #d3b7a2;
   --bg: #fdefe6; --panel: #f7e2d4; --parchment: #f9e8db; --parchment-line: #e0c6b4;
-  --field: #fff9f4; --ink: #2f2620; --muted: #665246; --faint: #7d6456;
+  --field: #fff9f4; --ink: #2f2620; --muted: #665246; --faint: #755e50;
   --line: #e8d3c4; --flame: #b0400d; --amber: #8f6410; --gray: #cdb7a6;
   --good: #4f6836; --bad: #9c3122; --on-flame: #fff8f0;
 }
 :root[data-daypart="morning"] {
   --plank: #f2e7d2; --plank-grain: #e5d8bf; --plank-edge: #d2c3a4;
   --bg: #fdf5e8; --panel: #f4ebd8; --parchment: #f7f0dd; --parchment-line: #ddd2b6;
-  --field: #fffcf4; --ink: #2c2821; --muted: #615a4d; --faint: #77705e;
+  --field: #fffcf4; --ink: #2c2821; --muted: #615a4d; --faint: #6b6454;
   --line: #e2d9c4; --flame: #b04700; --amber: #8a6408; --gray: #c8c0ab;
   --good: #4d6b31; --bad: #98362a; --on-flame: #fff8f0;
 }
 :root[data-daypart="golden"] {
   --plank: #f4e0bd; --plank-grain: #e8d0a6; --plank-edge: #d0b585;
   --bg: #fdf0d9; --panel: #f7e5c4; --parchment: #faecd0; --parchment-line: #e2cda2;
-  --field: #fff9ec; --ink: #33291d; --muted: #63543a; --faint: #7a6947;
+  --field: #fff9ec; --ink: #33291d; --muted: #63543a; --faint: #706041;
   --line: #e6d2ab; --flame: #af4005; --amber: #8a6208; --gray: #cfbb95;
   --good: #4e6630; --bad: #96331e; --on-flame: #fff8f0;
 }
@@ -170,10 +170,7 @@
   height: 100vh;
   z-index: -2;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 700ms var(--ease-out);
 }
-#scene.lit { opacity: 1; }
 
 /* planks: the surfaces the information actually sits on. grain is two very low
    contrast repeating gradients, so it reads as wood without ever fighting text
