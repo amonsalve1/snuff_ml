@@ -46,8 +46,10 @@ ERA_BOUNDARIES = {
 }
 
 # excluded from fitting, still predicted and scored. s41: erika won with the
-# lowest confessional share of any winner, the edit pointed everywhere else
-OUTLIER_SEASONS: set[int] = {41}
+# lowest confessional share of any winner, the edit pointed everywhere else.
+# s38: chris won from the edge after going out in ep 3, so his rows teach
+# nothing about how a winner gets edited
+OUTLIER_SEASONS: set[int] = {38, 41}
 
 # seasons with edgic coverage we can actually use, filled in as sources get
 # ingested. feature code gates on this.
