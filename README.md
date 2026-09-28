@@ -2,7 +2,7 @@
 
 Can you tell who wins Survivor just from how the show is edited? Mostly, yes.
 Confessional counts plus community edgic ratings get the eventual winner into
-the model's top 3 at 94% of finales, and make them the outright #1 pick at
+the model's top 3 at 92% of finales, and make them the outright #1 pick at
 46% of them. In the new era (41-50) the winner has made the top 3 at all ten
 finales, with 4 of 10 called outright. Every prediction below is
 out-of-sample: the model never saw the season it's predicting.
