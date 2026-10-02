@@ -1,13 +1,21 @@
-// compare view: all 50 winner trajectories on one chart, or two seasons side
+// compare view: every winner trajectory on one chart, or two seasons side
 // by side
 
-import { loadIndex, loadSeason } from "./app.js?v=24";
-import { lineChart } from "./charts.js?v=24";
+import { loadIndex, loadSeason } from "./app.js?v=29";
+import { lineChart } from "./charts.js?v=29";
 
 const ERA_COLORS = { old: "var(--gray)", middle: "var(--amber)", new: "var(--flame)" };
 
+// a season still on the air has winner null, so nothing here may print s.winner
+// for it. the line it draws is its current front runner, which is what
+// index.json parks in winner_probs.
+const isLive = (s) => !!(s && (s.live === true || s.outcome === "airing"));
+const seasonPick = (s) => (isLive(s) ? s.leader || "?" : s.winner);
+
 export async function renderCompare(el) {
   const index = await loadIndex();
+  const finished = index.seasons.filter((s) => !isLive(s));
+  const anyLive = index.seasons.some(isLive);
 
   el.innerHTML = `
     <div class="controls">
@@ -20,9 +28,11 @@ export async function renderCompare(el) {
 
   const drawWinners = () => {
     body.innerHTML = `
-      <h2>every winner's road, all 50 seasons</h2>
+      <h2>every winner's road, all ${finished.length} seasons</h2>
       <p class="note">x is season progress so 13 and 16 episode seasons line up.
-      the new era flattens: winners stay hidden longer.</p>
+      the new era flattens: winners stay hidden longer.${anyLive
+        ? " the season still airing rides along as its current front runner, not a winner."
+        : ""}</p>
       <div class="legend">
         <label><input type="checkbox" data-era="old" checked><span class="sw" style="background:#a89f88"></span>old (s1-20)</label>
         <label><input type="checkbox" data-era="middle" checked><span class="sw" style="background:#b8860b"></span>middle (s21-40)</label>
@@ -39,14 +49,20 @@ export async function renderCompare(el) {
       const series = index.seasons
         .filter((s) => active.has(s.era))
         .map((s) => {
-          // resample to a common progress axis
+          // resample to a common progress axis. a live season only covers the
+          // fraction it has aired: stretching one episode across the whole
+          // width would draw a flat line pretending the season is over.
+          const aired = s.winner_probs.length;
+          const full = isLive(s) ? Math.max(aired, s.expected_episodes || aired) : aired;
+          const reach = Math.max(1, Math.round((aired / full) * (N - 1)));
           const vals = [];
           for (let i = 0; i < N; i++) {
-            const idx = Math.round((i / (N - 1)) * (s.winner_probs.length - 1));
-            vals.push(s.winner_probs[idx]);
+            if (i > reach) { vals.push(null); continue; }
+            const idx = aired < 2 ? 0 : Math.round((i / reach) * (aired - 1));
+            vals.push(s.winner_probs[Math.min(idx, aired - 1)]);
           }
           return {
-            name: `s${s.season} ${s.winner}`,
+            name: isLive(s) ? `s${s.season} ${seasonPick(s)} so far` : `s${s.season} ${s.winner}`,
             values: vals,
             color: ERA_COLORS[s.era],
             width: 1.6,
@@ -73,7 +89,9 @@ export async function renderCompare(el) {
       for (const s of index.seasons) {
         const o = document.createElement("option");
         o.value = s.season;
-        o.textContent = `s${s.season} - ${s.winner} (${s.outcome === "missed" ? "blindsided" : s.outcome})`;
+        o.textContent = isLive(s)
+          ? `s${s.season} - airing now`
+          : `s${s.season} - ${s.winner} (${s.outcome === "missed" ? "blindsided" : s.outcome})`;
         sel.appendChild(o);
       }
     }

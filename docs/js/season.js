@@ -1,27 +1,72 @@
 // season explorer: trajectory chart, episode scrubber, leaderboard, why panel
 
-import { loadIndex, loadSeason, navigate, scene } from "./app.js?v=24";
-import { lineChart } from "./charts.js?v=24";
-import { applyDaypart, daypartForEpisode } from "./daypart.js?v=24";
+import { loadIndex, loadSeason, navigate, scene } from "./app.js?v=29";
+import { lineChart } from "./charts.js?v=29";
+import { applyDaypart, daypartForEpisode } from "./daypart.js?v=29";
 
 const badgeClass = (o) => (o === "called" ? "called" : o === "top3" ? "top3" : "missed");
 const badgeText = (o) =>
   o === "called" ? "called it" : o === "top3" ? "top 3" : o === "edge return" ? "edge case" : "blindsided";
+// a season that is still airing has no outcome and no winner yet. the flag only
+// ever shows up on the seasons that are mid run, so everything old reads as before
+const isLive = (s) => !!(s && (s.live === true || s.outcome === "airing"));
 const seasonLabel = (s) =>
   s.name && !/^\d+$/.test(s.name) ? `s${s.season} - ${s.name}` : `season ${s.season}`;
+
+// the model's boldest live call, stated plainly so it can be checked in public
+// as the season plays out
+function ordinal(n) {
+  const t = n % 100;
+  if (t >= 11 && t <= 13) return `${n}th`;
+  return `${n}${["th", "st", "nd", "rd"][n % 10] || "th"}`;
+}
+
+function betNote(meta) {
+  const b = meta && meta.bet;
+  if (!b) return "";
+  const where = b.rank === b.of ? `last of ${b.of}` : `${ordinal(b.rank)} of ${b.of}`;
+  return `<p class="bet"><b>the model is betting against ${b.name}.</b>
+    biggest edit of the season so far at ${b.share}% of all confessionals, and
+    it has them ${where} at ${b.prob}%. in the new era the episode one
+    confessional leader is 0 for 10.</p>`;
+}
 
 export async function renderSeason(el, seasonNum, episode, playerId) {
   const [index, data] = await Promise.all([loadIndex(), loadSeason(seasonNum)]);
   const eps = data.episodes;
   const ep = Math.max(eps[0], Math.min(episode || eps[eps.length - 1], eps[eps.length - 1]));
   const epIdx = eps.indexOf(ep);
-  const meta = index.seasons.find((s) => s.season === data.season);
+  // an empty meta keeps a half loaded index from taking the whole view down
+  const meta = index.seasons.find((s) => s.season === data.season) || {};
+  const live = isLive(data) || isLive(meta);
+
+  // nobody has won a live season, so the model's current front runner stands in
+  // for the winner everywhere the winner would normally be painted. index.json
+  // names them; if it doesn't we just take the top odds at the latest episode.
+  const topAt = (i) =>
+    data.players.filter((p) => p.probs[i] != null).sort((a, b) => b.probs[i] - a.probs[i])[0] || null;
+  const leader = live
+    ? data.players.find((p) => p.name === meta.leader) || topAt(eps.length - 1)
+    : null;
+  // one flag for "paint this one in flame", so the chart and the board agree
+  const hot = (p) => (live ? leader != null && p.id === leader.id : !!p.winner);
+
+  const soleSurvivor = meta.winner || (data.players.find((p) => p.winner) || {}).name || "unknown";
+  const standing = live
+    ? `<span class="note pick">model likes: <b>${leader ? leader.name : "nobody yet"}</b> - no winner yet</span>`
+    : `<span class="note">sole survivor: ${soleSurvivor}</span>`;
+  const badge = live
+    ? `<span class="badge live"><span class="dot" aria-hidden="true"></span>airing now</span>`
+    : `<span class="badge ${badgeClass(data.outcome)}">${badgeText(data.outcome)}</span>`;
+  const chartHint = live && eps.length < 2
+    ? "one episode in, so there is no line to draw yet. click a name for the why panel."
+    : `drag the slider to replay the season${live ? " so far" : ""}. click a line or a name for the why panel.`;
 
   el.innerHTML = `
     <div class="controls">
       <select id="season-pick"></select>
-      <span class="badge ${badgeClass(data.outcome)}">${badgeText(data.outcome)}</span>
-      <span class="note">sole survivor: ${meta.winner}</span>
+      ${badge}
+      ${standing}
       <span class="spacer"></span>
       <label class="note"><span id="ep-note">episode</span> <b id="ep-num">${ep}</b> / ${eps[eps.length - 1]}</label>
     </div>
@@ -29,7 +74,8 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
     <div class="layout">
       <div>
         <div id="chart"></div>
-        <p class="note">drag the slider to replay the season. click a line or a name for the why panel.</p>
+        <p class="note">${chartHint}</p>
+        ${betNote(meta)}
         <div class="duel" id="duel" hidden></div>
       </div>
       <div>
@@ -39,21 +85,36 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
     </div>`;
 
   const pick = el.querySelector("#season-pick");
-  for (const s of index.seasons) {
+  const addOpt = (parent, s) => {
     const o = document.createElement("option");
     o.value = s.season;
-    o.textContent = seasonLabel(s);
+    o.textContent = isLive(s) ? `${seasonLabel(s)} (airing)` : seasonLabel(s);
     if (s.season === data.season) o.selected = true;
-    pick.appendChild(o);
+    parent.appendChild(o);
+  };
+  const airing = index.seasons.filter(isLive);
+  if (airing.length) {
+    // whatever is on the air right now sits at the top of the list under its own
+    // heading, the other fifty stay in season order below it
+    const group = (label, list) => {
+      const g = document.createElement("optgroup");
+      g.label = label;
+      for (const s of list) addOpt(g, s);
+      pick.appendChild(g);
+    };
+    group("airing now", airing);
+    group("finished", index.seasons.filter((s) => !isLive(s)));
+  } else {
+    for (const s of index.seasons) addOpt(pick, s);
   }
   pick.addEventListener("change", () => navigate(`#/season/${pick.value}`));
 
   const series = data.players.map((p) => ({
     name: p.name,
     values: p.probs,
-    color: p.winner ? "var(--flame)" : "var(--gray)",
-    width: p.winner ? 2.6 : 1.4,
-    dim: !p.winner,
+    color: hot(p) ? "var(--flame)" : "var(--gray)",
+    width: hot(p) ? 2.6 : 1.4,
+    dim: !hot(p),
   }));
 
   const state = { ep: epIdx, player: playerId, rival: null };
@@ -91,7 +152,9 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
     board.innerHTML = "";
     for (const p of alive) {
       const row = document.createElement("div");
-      row.className = `row${p.winner ? " winner" : ""}${p.id === state.player ? " selected" : ""}`;
+      // on a live season the flame row is the model's pick, not a result
+      row.className = `row${hot(p) ? (live ? " leader" : " winner") : ""}${p.id === state.player ? " selected" : ""}`;
+      if (live && hot(p)) row.title = "the model's current front runner";
       row.innerHTML = `<span class="name">${p.name}</span>
         <span><span class="bar" style="width:${(p.probs[state.ep] / maxP) * 100}%"></span></span>
         <span class="pct">${(p.probs[state.ep] * 100).toFixed(1)}%</span>`;
@@ -184,12 +247,19 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
   };
 
   const epNote = () => {
+    // the last episode of a live season is just the latest one, not final tribal
     el.querySelector("#ep-note").textContent =
-      state.ep === eps.length - 1 ? "final tribal, episode" : "episode";
+      state.ep === eps.length - 1 ? (live ? "latest aired, episode" : "final tribal, episode") : "episode";
   };
   // the light follows the season: flat midday at the premiere, golden around
   // the merge, dark by final tribal
-  const lightFor = () => applyDaypart(daypartForEpisode(state.ep, eps.length));
+  // a live season paces off how long it will actually run. using the aired
+  // count would make the newest episode the finale every week, so episode 2
+  // would light like final tribal.
+  const arcLen = live && meta.expected_episodes
+    ? Math.max(eps.length, meta.expected_episodes)
+    : eps.length;
+  const lightFor = () => applyDaypart(daypartForEpisode(state.ep, arcLen));
 
   // the beach gets the cast: a torch each, lit while they are still in it, and
   // the flame sized by win probability. scrubbing walks the camera down it.

@@ -1,10 +1,10 @@
 // boot, hash routing and a small fetch cache shared by the views
 
-import { renderSeason } from "./season.js?v=24";
-import { renderCompare } from "./compare.js?v=24";
-import { renderInsights } from "./insights.js?v=24";
-import { applyDaypart, COMPARE_DAYPART, INSIGHTS_DAYPART, onDaypartChange, currentDaypart } from "./daypart.js?v=24";
-import { createScene } from "./scene.js?v=24";
+import { renderSeason } from "./season.js?v=29";
+import { renderCompare } from "./compare.js?v=29";
+import { renderInsights } from "./insights.js?v=29";
+import { applyDaypart, COMPARE_DAYPART, INSIGHTS_DAYPART, onDaypartChange, currentDaypart } from "./daypart.js?v=29";
+import { createScene } from "./scene.js?v=29";
 
 // the island behind the page. it follows the daypart on its own, and the season
 // view hands it the cast so the torches mean something.
@@ -73,13 +73,22 @@ async function heroStats() {
   const el = document.getElementById("hero-stats");
   if (!el) return;
   const idx = await loadIndex();
-  const s = idx.seasons;
+  // a season still airing has no outcome yet, so it stays out of every hit rate
+  // and gets a tile of its own instead
+  const live = (x) => x.live === true || x.outcome === "airing";
+  const s = idx.seasons.filter((x) => !live(x));
+  const airing = idx.seasons.find(live) || null;
   const called = s.filter((x) => x.outcome === "called").length;
   const top3 = s.filter((x) => x.outcome === "called" || x.outcome === "top3").length;
   const newEra = s.filter((x) => x.era === "new");
   const newTop3 = newEra.filter((x) => x.outcome === "called" || x.outcome === "top3").length;
   const tile = (big, label) => `<div class="tile"><b>${big}</b><span>${label}</span></div>`;
+  const liveTile = airing
+    ? `<a class="tile live" href="#/season/${airing.season}"><b>s${airing.season}</b><span>airing now - episode ${airing.episodes}${airing.leader ? `, model likes ${airing.leader}` : ""}</span></a>`
+    : "";
+  el.classList.toggle("has-live", !!liveTile);
   el.innerHTML =
+    liveTile +
     tile(s.length, "seasons replayed episode by episode") +
     tile(Math.round((called / s.length) * 100) + "%", "winners called at the finale") +
     tile(Math.round((top3 / s.length) * 100) + "%", "winners in the model's top three") +

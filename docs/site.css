@@ -315,6 +315,72 @@ select {
 .badge.top3 { background: var(--amber); }
 .badge.missed, .badge.edge { background: var(--bad); }
 
+/* ---------------------------------------------------------------- live ---- */
+/* a season still on the air. every colour here is a daypart token, so the live
+   state comes along for free in all six light states. the chip is ink on panel
+   (11:1 at the worst daypart) with the flame only doing the dot and the edge,
+   because flame on plank is a hair over AA and a chip is not the place to spend
+   that margin. */
+.badge.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--flame);
+}
+.badge.live .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--flame);
+  animation: live-pulse 1.8s var(--ease-light) infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+/* the pulse is the only thing that moves; without motion it just sits there lit */
+@media (prefers-reduced-motion: reduce) {
+  .badge.live .dot { animation: none; opacity: 1; transform: none; }
+}
+
+/* "model likes: X" stands in for "sole survivor: X". muted label, ink name, so
+   it never reads like a result */
+.note.pick { color: var(--muted); }
+.note.pick b { color: var(--ink); font-weight: 700; }
+
+/* the airing season gets a fifth hero tile and it is a link into the season */
+.stats.has-live { grid-template-columns: repeat(5, 1fr); }
+.stats .tile.live {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-color: var(--flame);
+}
+.stats .tile.live:hover { background: var(--field); }
+.stats .tile.live:focus-visible { outline: 2px solid var(--flame); outline-offset: 2px; }
+.stats .tile.live b { color: var(--flame); }
+.stats .tile.live b::after {
+  content: "";
+  display: inline-block;
+  vertical-align: middle;
+  width: 8px;
+  height: 8px;
+  margin: -2px 0 0 8px;
+  border-radius: 50%;
+  background: var(--flame);
+  animation: live-pulse 1.8s var(--ease-light) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stats .tile.live b::after { animation: none; }
+}
+/* five tiles need the room; below that the live one is a banner over a 2x2 */
+@media (max-width: 880px) {
+  .stats.has-live { grid-template-columns: 1fr 1fr; }
+  .stats.has-live .tile.live { grid-column: 1 / -1; }
+}
+
 .chart-wrap { position: relative; }
 .chart-wrap svg { width: 100%; height: auto; display: block; }
 
@@ -353,8 +419,10 @@ select {
   background: var(--gray);
   transition: width 0.25s ease;
 }
-.board .row.winner .bar { background: var(--flame); }
-.board .row.winner .name { color: var(--flame); font-weight: 600; }
+/* .leader is the live season's front runner: same treatment as a winner, since
+   it is the same "this is the one the model is pointing at" row */
+.board .row.winner .bar, .board .row.leader .bar { background: var(--flame); }
+.board .row.winner .name, .board .row.leader .name { color: var(--flame); font-weight: 600; }
 .board .row .pct { text-align: right; color: var(--muted); font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
 .board .row.out { color: var(--faint); cursor: default; }
 .board .row.out .name { text-decoration: line-through; text-decoration-color: var(--line); }
@@ -419,3 +487,16 @@ tr.link:hover td { color: var(--flame); }
 .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
 
 .note { color: var(--faint); font-size: 13px; }
+
+/* the live bet: the model putting money down in public */
+.bet {
+  margin: var(--sp-3) 0 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--panel);
+  border-left: 3px solid var(--flame);
+  border-radius: 0 var(--r-card) var(--r-card) 0;
+}
+.bet b { color: var(--flame); }

@@ -15,13 +15,20 @@ from snuffml.data import survivor2py
 LABEL_COLUMNS = ["is_winner", "made_merge", "made_ftc", "jury_vote_share", "result_order"]
 STATE_COLUMNS = ["in_game", "n_alive", "final_n", "episode_frac", "era", "gender"]
 
+# statuses that still count as alive in the main game. everything else
+# (edge of extinction, redemption island, never started) is out.
+IN_GAME_STATUSES = {"In the game", "Exile Island", "Returned"}
+
 
 def _alive_by_episode(boot_mapping: pd.DataFrame) -> pd.DataFrame:
     # first sog of an episode = the entering-the-episode state
     bm = boot_mapping.dropna(subset=["episode", "sog_id"]).copy()
     first_sog = bm.groupby(["season", "episode"])["sog_id"].transform("min")
     entering = bm[bm["sog_id"] == first_sog].copy()
-    entering["in_game"] = entering["game_status"] == "In the game"
+    # exile island and a returnee coming back off the edge are both still very
+    # much in the main game, they just missed a tribal. only edge/redemption
+    # residents and people who never started are actually out.
+    entering["in_game"] = entering["game_status"].isin(IN_GAME_STATUSES)
     out = (
         entering.groupby(["season", "episode", "castaway_id"], as_index=False)
         .agg(in_game=("in_game", "any"), final_n=("final_n", "first"), tribe=("tribe", "first"))

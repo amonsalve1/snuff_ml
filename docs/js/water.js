@@ -59,7 +59,7 @@
 // drawSand also takes an optional flat [x, strength, ...] list of point lights
 // for the torch reflections after dark. see its own comment.
 
-import { PALETTE } from "./jungle-sprites.js?v=24";
+import { PALETTE } from "./jungle-sprites.js?v=29";
 
 const TAU = Math.PI * 2;
 const SEA_BANDS = 7;

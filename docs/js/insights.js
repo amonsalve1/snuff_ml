@@ -1,6 +1,6 @@
 // insights view: the findings as tables, rows deep-link into seasons
 
-import { loadIndex, loadInsights, navigate } from "./app.js?v=24";
+import { loadIndex, loadInsights, navigate } from "./app.js?v=29";
 
 const pct = (v) => `${(v * 100).toFixed(1)}%`;
 

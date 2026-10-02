@@ -4,6 +4,10 @@ Reads reports/retrospective/preds_blend.parquet and
 models/blend_through_s50.joblib, writes docs/data/index.json,
 docs/data/seasons/sNN.json and docs/data/insights.json. Run
 `snuffml study --loso` and `snuffml train` first.
+
+The parquet only covers finished seasons. A season that's still on the air
+isn't in it at all, so it gets scored separately with the trained-through
+model and exported through the same builders, flagged "live".
 """
 
 from __future__ import annotations
@@ -15,7 +19,11 @@ import pandas as pd
 
 from snuffml import config
 from snuffml.data import survivor2py
-from snuffml.models.sklearn_baseline import EraBlendModel, WinnerModel  # noqa: F401
+from snuffml.models.sklearn_baseline import (  # noqa: F401
+    EraBlendModel,
+    WinnerModel,
+    model_path,
+)
 
 # feature -> (phrase when pushing up, phrase when pushing down)
 FEATURE_LABELS: dict[str, tuple[str, str]] = {
@@ -108,6 +116,60 @@ def loso_contributions(preds: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(out).reindex(preds.index)
 
 
+def season_is_live(season_rows: pd.DataFrame) -> bool:
+    """Is this season still airing?
+
+    Two winnerless-looking things have to stay apart. s38 has a winner in the
+    panel who is just missing from the final snapshot (chris came back from
+    the edge after going out in ep 3) - that season is over. A season still on
+    the air has no winner anywhere. A finished season also has finalists, so
+    made_ftc catches the case where the winner flag never got filled in but
+    the finale did happen.
+    """
+    if season_rows["is_winner"].any():
+        return False
+    return not season_rows["made_ftc"].any()
+
+
+def predict_airing(preds: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Score the season that's on the air right now.
+
+    The loso parquet is the study over finished seasons, so an airing season
+    is simply absent from it. Anything in the panel the study never saw and
+    nobody has won yet gets the trained-through blend, which was fit through
+    the last finished season - so these predictions are out of sample too,
+    nothing leaks.
+
+    Returns (rows with win_prob, logit contributions keyed by _row). Both are
+    empty when nothing is airing.
+    """
+    from snuffml.features import build as build_mod
+
+    panel = build_mod.load_features()
+    done = {int(s) for s in preds["season"].unique()}
+    airing = []
+    for s, g in panel.groupby("season"):
+        if int(s) in done or not season_is_live(g):
+            continue
+        if not (g["conf_ep"].sum() > 0):
+            continue  # mirror placeholder with no edit data, nothing to predict from
+        airing.append(int(s))
+    if not airing:
+        return pd.DataFrame(), pd.DataFrame()
+
+    model = EraBlendModel.load(model_path("blend", max(done)))
+    rows = model.predict(panel[panel["season"].isin(airing)])
+    rows = rows.sort_values(["season", "castaway_id", "episode"]).reset_index(drop=True)
+    # _row has to stay unique once these get concatenated onto preds
+    rows["_row"] = rows.index + len(preds)
+    contrib = blend_contributions(model, rows)
+    contrib.index = rows["_row"]
+    for s in airing:
+        g = rows[rows["season"] == s]
+        print(f"  live s{s}: {g['episode'].nunique()} eps, {len(g)} alive rows", flush=True)
+    return rows, contrib
+
+
 def top_k_why(contrib_row: pd.Series, k: int = 3) -> list[list]:
     row = contrib_row[[c for c in contrib_row.index if not c.startswith("era_")]]
     row = row[row.abs() > 1e-4].sort_values()
@@ -118,7 +180,14 @@ def top_k_why(contrib_row: pd.Series, k: int = 3) -> list[list]:
     return out
 
 
+def top_pick(rows: pd.DataFrame) -> pd.Series:
+    """Highest win_prob, name as the tiebreak - same order build_season sorts by."""
+    return rows.sort_values(["win_prob", "castaway"], ascending=[False, True]).iloc[0]
+
+
 def season_outcome(season_preds: pd.DataFrame) -> str:
+    if season_is_live(season_preds):
+        return "airing"
     last = season_preds[season_preds["episode"] == season_preds["episode"].max()]
     last = last.sort_values("win_prob", ascending=False).reset_index(drop=True)
     if not last["is_winner"].any():
@@ -140,27 +209,81 @@ def season_names() -> dict[int, str]:
     return out
 
 
+def expected_episode_count(preds: pd.DataFrame, era: str) -> int:
+    """typical length of a finished season in this era, for pacing a live one"""
+    lens = (
+        preds[preds["season"].map(lambda x: config.era_of(int(x))) == era]
+        .groupby("season")["episode"]
+        .max()
+    )
+    return int(lens.median()) if len(lens) else 13
+
+
+def live_bet(g: pd.DataFrame) -> dict | None:
+    """the model's boldest live call: the biggest edit it is betting against.
+
+    whoever owns the most confessional share right now, and where the model
+    actually ranks them. in the new era the episode one share leader is 0 for
+    10, so when the loudest edit sits near the bottom that is the model putting
+    real money down, and it is checkable in public as the season plays out.
+    """
+    last = g[g["episode"] == g["episode"].max()]
+    if last.empty or "conf_share_cum" not in last:
+        return None
+    ranked = last.sort_values("win_prob", ascending=False).reset_index(drop=True)
+    loud = last.loc[last["conf_share_cum"].idxmax()]
+    rank = int(ranked.index[ranked["castaway_id"] == loud["castaway_id"]][0]) + 1
+    # only worth saying when the loudest edit is in the bottom half
+    if rank <= len(ranked) / 2:
+        return None
+    return {
+        "name": str(loud["castaway"]),
+        "share": round(float(loud["conf_share_cum"]) * 100, 1),
+        "rank": rank,
+        "of": len(ranked),
+        "prob": round(float(loud["win_prob"]) * 100, 1),
+    }
+
+
 def build_index(preds: pd.DataFrame, names: dict[int, str]) -> dict:
     seasons = []
     for s, g in preds.groupby("season"):
         eps = sorted(g["episode"].unique())
-        w = g[g["is_winner"]]
-        wname = str(w["castaway"].iloc[0]) if len(w) else "?"
+        live = season_is_live(g)
+        if live:
+            # nobody has won yet, so the line the compare view draws is the
+            # current top pick's instead. same field so the site needs no
+            # special case to plot it
+            tracked = g[g["castaway_id"] == top_pick(g[g["episode"] == eps[-1]])["castaway_id"]]
+        else:
+            tracked = g[g["is_winner"]]
+        wname = str(tracked["castaway"].iloc[0]) if len(tracked) else "?"
         wprobs = []
         for e in eps:
-            we = w[w["episode"] == e]
+            we = tracked[tracked["episode"] == e]
             wprobs.append(round(float(we["win_prob"].iloc[0]), 4) if len(we) else None)
-        seasons.append(
-            {
-                "season": int(s),
-                "name": names.get(int(s), ""),
-                "era": config.era_of(int(s)),
-                "episodes": len(eps),
-                "winner": wname,
-                "outcome": season_outcome(g),
-                "winner_probs": wprobs,
-            }
-        )
+        entry = {
+            "season": int(s),
+            "name": names.get(int(s), ""),
+            "era": config.era_of(int(s)),
+            "episodes": len(eps),
+            "winner": None if live else wname,
+            "outcome": season_outcome(g),
+        }
+        if live:
+            entry["live"] = True
+            entry["leader"] = wname
+            # the real length, not the aired count. without it the light arc
+            # and the compare axis both read the latest aired episode as the
+            # finale, so episode 2 would come out pitch dark
+            entry["expected_episodes"] = expected_episode_count(
+                preds, config.era_of(int(s))
+            )
+            bet = live_bet(g)
+            if bet:
+                entry["bet"] = bet
+        entry["winner_probs"] = wprobs
+        seasons.append(entry)
     labels = {k: list(v) for k, v in FEATURE_LABELS.items()}
     return {"labels": labels, "seasons": seasons}
 
@@ -192,13 +315,16 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
             }
         )
     players.sort(key=lambda pl: (-(pl["probs"][-1] or 0), pl["name"]))
-    return {
+    out = {
         "season": season,
         "era": config.era_of(season),
         "episodes": [int(e) for e in eps],
         "outcome": season_outcome(g),
-        "players": players,
     }
+    if season_is_live(g):
+        out["live"] = True
+    out["players"] = players
+    return out
 
 
 def build_insights(preds: pd.DataFrame) -> dict:
@@ -282,23 +408,46 @@ def build_insights(preds: pd.DataFrame) -> dict:
     }
 
 
-def sanity_check(preds: pd.DataFrame, out_dir: Path) -> None:
+def sanity_check(preds: pd.DataFrame, out_dir: Path, live: pd.DataFrame | None = None) -> None:
+    n_done = preds["season"].nunique()
+    live_seasons = 0 if live is None or not len(live) else live["season"].nunique()
+    live_len = 0 if live is None else len(live)
     season_files = sorted((out_dir / "seasons").glob("s*.json"))
-    if len(season_files) != preds["season"].nunique():
-        raise SystemExit(f"expected {preds['season'].nunique()} season files, got {len(season_files)}")
-    n_rows = 0
+    expect = n_done + live_seasons
+    if len(season_files) != expect:
+        raise SystemExit(f"expected {expect} season files, got {len(season_files)}")
+    n_rows = n_live_rows = n_done_files = n_live_files = 0
     for f in season_files:
         data = json.loads(f.read_text())
+        # holds for the live season too: probs are renormalized over whoever
+        # is still alive that episode
         for e_i, e in enumerate(data["episodes"]):
             total = sum(p["probs"][e_i] for p in data["players"] if p["probs"][e_i] is not None)
             if abs(total - 1.0) > 1e-2:
                 raise SystemExit(f"{f.name} episode {e}: probs sum to {total:.3f}")
-        n_rows += sum(sum(x is not None for x in p["probs"]) for p in data["players"])
-        if not any(p["winner"] for p in data["players"]):
-            raise SystemExit(f"{f.name}: no winner")
+        rows = sum(sum(x is not None for x in p["probs"]) for p in data["players"])
+        if data.get("live"):
+            n_live_rows += rows
+            n_live_files += 1
+            if any(p["winner"] for p in data["players"]):
+                raise SystemExit(f"{f.name}: live season already has a winner")
+            if data["outcome"] != "airing":
+                raise SystemExit(f"{f.name}: live season outcome is {data['outcome']!r}")
+        else:
+            n_rows += rows
+            n_done_files += 1
+            if not any(p["winner"] for p in data["players"]):
+                raise SystemExit(f"{f.name}: no winner")
+    if n_done_files != n_done:
+        raise SystemExit(f"{n_done_files} finished season files, parquet has {n_done}")
+    if n_live_files != live_seasons:
+        raise SystemExit(f"{n_live_files} live season files, expected {live_seasons}")
     if n_rows != len(preds):
         raise SystemExit(f"exported {n_rows} alive rows, parquet has {len(preds)}")
-    print(f"sanity ok: {len(season_files)} seasons, {n_rows} rows")
+    if n_live_rows != live_len:
+        raise SystemExit(f"exported {n_live_rows} live rows, predicted {live_len}")
+    extra = f" + {live_seasons} live ({n_live_rows} rows)" if live_seasons else ""
+    print(f"sanity ok: {n_done_files} seasons, {n_rows} rows{extra}")
 
 
 def main() -> None:
@@ -308,17 +457,23 @@ def main() -> None:
     preds["_row"] = preds.index
     contrib = loso_contributions(preds)
 
+    live, live_contrib = predict_airing(preds)
+    # the site builders treat both the same; insights stays on finished
+    # seasons only, an airing season has nothing to say about how it ended
+    both = pd.concat([preds, live], ignore_index=True) if len(live) else preds
+    both_contrib = pd.concat([contrib, live_contrib]) if len(live) else contrib
+
     out = config.PROJECT_ROOT / "docs" / "data"
     (out / "seasons").mkdir(parents=True, exist_ok=True)
 
     def dump(obj: dict, path: Path) -> None:
         path.write_text(json.dumps(obj, separators=(",", ":")))
 
-    dump(build_index(preds, season_names()), out / "index.json")
-    for s in sorted(preds["season"].unique()):
-        dump(build_season(preds, contrib, int(s)), out / "seasons" / f"s{int(s):02d}.json")
+    dump(build_index(both, season_names()), out / "index.json")
+    for s in sorted(both["season"].unique()):
+        dump(build_season(both, both_contrib, int(s)), out / "seasons" / f"s{int(s):02d}.json")
     dump(build_insights(preds), out / "insights.json")
-    sanity_check(preds, out)
+    sanity_check(preds, out, live)
     total_kb = sum(f.stat().st_size for f in out.rglob("*.json")) / 1024
     print(f"wrote docs/data ({total_kb:.0f} KB)")
 

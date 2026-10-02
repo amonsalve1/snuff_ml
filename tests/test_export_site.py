@@ -7,19 +7,39 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import export_site  # noqa: E402
 
 
+COLUMNS = [
+    "season",
+    "episode",
+    "castaway_id",
+    "castaway",
+    "is_winner",
+    "made_ftc",
+    "win_prob",
+    "early_flag",
+    "zero_any",
+]
+
+
 def _toy_preds() -> pd.DataFrame:
-    # 3 players, 2 episodes; C booted after ep 1; winner B
+    # 3 players, 2 episodes; C booted after ep 1; winner B, A the runner up
     rows = [
-        (1, 1, "A", "Alice", False, 0.3, 1.0, 0.0),
-        (1, 1, "B", "Bob", True, 0.4, 0.0, 0.0),
-        (1, 1, "C", "Cara", False, 0.3, 0.0, 0.0),
-        (1, 2, "A", "Alice", False, 0.45, 1.0, 0.0),
-        (1, 2, "B", "Bob", True, 0.55, 0.0, 0.0),
+        (1, 1, "A", "Alice", False, True, 0.3, 1.0, 0.0),
+        (1, 1, "B", "Bob", True, True, 0.4, 0.0, 0.0),
+        (1, 1, "C", "Cara", False, False, 0.3, 0.0, 0.0),
+        (1, 2, "A", "Alice", False, True, 0.45, 1.0, 0.0),
+        (1, 2, "B", "Bob", True, True, 0.55, 0.0, 0.0),
     ]
-    return pd.DataFrame(
-        rows,
-        columns=["season", "episode", "castaway_id", "castaway", "is_winner", "win_prob", "early_flag", "zero_any"],
-    )
+    return pd.DataFrame(rows, columns=COLUMNS)
+
+
+def _live_preds() -> pd.DataFrame:
+    # still airing: one episode in the can, nobody has won, nobody at ftc yet
+    rows = [
+        (51, 1, "A", "Alice", False, False, 0.5, 0.0, 0.0),
+        (51, 1, "B", "Bob", False, False, 0.3, 0.0, 0.0),
+        (51, 1, "C", "Cara", False, False, 0.2, 0.0, 0.0),
+    ]
+    return pd.DataFrame(rows, columns=COLUMNS)
 
 
 def _toy_contrib(preds: pd.DataFrame) -> pd.DataFrame:
@@ -66,9 +86,54 @@ def test_season_outcome_variants():
     flipped = preds.copy()
     flipped["win_prob"] = [0.3, 0.4, 0.3, 0.55, 0.45]
     assert export_site.season_outcome(flipped) == "top3"
-    # winner missing from the last snapshot = the s38 edge case
+    # winner missing from the last snapshot = the s38 edge case. he is still
+    # in the panel earlier on, so it must not read as a season still airing
     edge = preds[~((preds["episode"] == 2) & (preds["castaway_id"] == "B"))]
+    assert not export_site.season_is_live(edge)
     assert export_site.season_outcome(edge) == "edge return"
+
+
+def test_live_season_is_airing():
+    live = _live_preds()
+    assert export_site.season_is_live(live)
+    assert export_site.season_outcome(live) == "airing"
+
+
+def test_winnerless_but_finished_is_not_airing():
+    # winner flag never landed, but the finale happened, so it is not live
+    done = _toy_preds()
+    done["is_winner"] = False
+    assert not export_site.season_is_live(done)
+    assert export_site.season_outcome(done) == "edge return"
+
+
+def test_build_season_marks_live():
+    live = _live_preds()
+    live["_row"] = live.index
+    contrib = pd.DataFrame({"conf_cum": [0.4, -0.2, 0.1]}, index=live.index)
+    season = export_site.build_season(live, contrib, 51)
+    assert season["live"] is True
+    assert season["outcome"] == "airing"
+    assert not any(p["winner"] for p in season["players"])
+    assert season["players"][0]["name"] == "Alice"
+
+
+def test_build_index_live_entry():
+    entry = export_site.build_index(_live_preds(), {51: "51"})["seasons"][0]
+    assert entry["winner"] is None
+    assert entry["outcome"] == "airing"
+    assert entry["live"] is True
+    assert entry["leader"] == "Alice"
+    # compare view still needs a line, so the leader's probs stand in
+    assert entry["winner_probs"] == [0.5]
+
+
+def test_build_index_finished_entry_unchanged():
+    entry = export_site.build_index(_toy_preds(), {1: "Borneo"})["seasons"][0]
+    assert entry["winner"] == "Bob"
+    assert entry["outcome"] == "called"
+    assert entry["winner_probs"] == [0.4, 0.55]
+    assert "live" not in entry and "leader" not in entry
 
 
 def test_labels_cover_model_features(features_df):
