@@ -245,6 +245,35 @@ def live_bet(g: pd.DataFrame) -> dict | None:
     }
 
 
+def live_notes(season: int, eps: list[int]) -> dict:
+    """who just went home, and which episodes are hand entered.
+
+    a live season's newest episode still shows the person voted out in it,
+    exactly the way a finished season does, so the board needs to say so out
+    loud. and anything sourced from data/manual/live is provisional: it is a
+    fan tally typed in ahead of survivoR, so the site has to admit that.
+    """
+    out = {}
+    try:
+        vh = survivor2py.load_table("vote_history", fetch=False)
+        v = vh[(vh["season"] == season) & (vh["episode"] == max(eps))]
+        gone = v["voted_out"].dropna().unique()
+        if len(gone):
+            out["just_out"] = str(gone[0])
+    except Exception:
+        pass
+    manual = survivor2py.manual_live_dir() / "confessionals.csv"
+    if manual.exists():
+        try:
+            m = pd.read_csv(manual)
+            prov = sorted({int(e) for e in m.loc[m["season"] == season, "episode"].dropna()})
+            if prov:
+                out["provisional_episodes"] = prov
+        except Exception:
+            pass
+    return out
+
+
 def build_index(preds: pd.DataFrame, names: dict[int, str]) -> dict:
     seasons = []
     for s, g in preds.groupby("season"):
@@ -282,6 +311,7 @@ def build_index(preds: pd.DataFrame, names: dict[int, str]) -> dict:
             bet = live_bet(g)
             if bet:
                 entry["bet"] = bet
+            entry.update(live_notes(int(s), eps))
         entry["winner_probs"] = wprobs
         seasons.append(entry)
     labels = {k: list(v) for k, v in FEATURE_LABELS.items()}

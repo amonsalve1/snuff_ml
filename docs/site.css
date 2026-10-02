@@ -500,3 +500,15 @@ tr.link:hover td { color: var(--flame); }
   border-radius: 0 var(--r-card) var(--r-card) 0;
 }
 .bet b { color: var(--flame); }
+
+/* provisional data: say so on the page, not just in the commit */
+.provisional {
+  margin: var(--sp-3) 0 0;
+  padding: 9px 13px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--parchment);
+  border: 1px dashed var(--parchment-line);
+  border-radius: var(--r-card);
+}

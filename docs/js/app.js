@@ -1,10 +1,10 @@
 // boot, hash routing and a small fetch cache shared by the views
 
-import { renderSeason } from "./season.js?v=29";
-import { renderCompare } from "./compare.js?v=29";
-import { renderInsights } from "./insights.js?v=29";
-import { applyDaypart, COMPARE_DAYPART, INSIGHTS_DAYPART, onDaypartChange, currentDaypart } from "./daypart.js?v=29";
-import { createScene } from "./scene.js?v=29";
+import { renderSeason } from "./season.js?v=30";
+import { renderCompare } from "./compare.js?v=30";
+import { renderInsights } from "./insights.js?v=30";
+import { applyDaypart, COMPARE_DAYPART, INSIGHTS_DAYPART, onDaypartChange, currentDaypart } from "./daypart.js?v=30";
+import { createScene } from "./scene.js?v=30";
 
 // the island behind the page. it follows the daypart on its own, and the season
 // view hands it the cast so the torches mean something.

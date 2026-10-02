@@ -1,8 +1,8 @@
 // compare view: every winner trajectory on one chart, or two seasons side
 // by side
 
-import { loadIndex, loadSeason } from "./app.js?v=29";
-import { lineChart } from "./charts.js?v=29";
+import { loadIndex, loadSeason } from "./app.js?v=30";
+import { lineChart } from "./charts.js?v=30";
 
 const ERA_COLORS = { old: "var(--gray)", middle: "var(--amber)", new: "var(--flame)" };
 

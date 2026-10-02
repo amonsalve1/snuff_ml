@@ -1,8 +1,8 @@
 // season explorer: trajectory chart, episode scrubber, leaderboard, why panel
 
-import { loadIndex, loadSeason, navigate, scene } from "./app.js?v=29";
-import { lineChart } from "./charts.js?v=29";
-import { applyDaypart, daypartForEpisode } from "./daypart.js?v=29";
+import { loadIndex, loadSeason, navigate, scene } from "./app.js?v=30";
+import { lineChart } from "./charts.js?v=30";
+import { applyDaypart, daypartForEpisode } from "./daypart.js?v=30";
 
 const badgeClass = (o) => (o === "called" ? "called" : o === "top3" ? "top3" : "missed");
 const badgeText = (o) =>
@@ -19,6 +19,24 @@ function ordinal(n) {
   const t = n % 100;
   if (t >= 11 && t <= 13) return `${n}th`;
   return `${n}${["th", "st", "nd", "rd"][n % 10] || "th"}`;
+}
+
+// episodes typed in from a fan tally ahead of the official data, and whoever
+// just went home. both belong on screen rather than in a commit message.
+function liveNotes(meta) {
+  if (!meta || !meta.live) return "";
+  const bits = [];
+  if (meta.just_out) bits.push(`<b>${meta.just_out}</b> voted out`);
+  const prov = meta.provisional_episodes || [];
+  if (prov.length) {
+    const eps = prov.length === 1 ? `episode ${prov[0]}` : `episodes ${prov.join(", ")}`;
+    bits.push(`${eps} ${prov.length === 1 ? "is" : "are"} provisional:
+      counts hand entered from a fan tally because the official data has not
+      landed yet, and gameplay stats for ${prov.length === 1 ? "it" : "them"}
+      are partial`);
+  }
+  if (!bits.length) return "";
+  return `<p class="provisional">${bits.join(". ")}.</p>`;
 }
 
 function betNote(meta) {
@@ -75,6 +93,7 @@ export async function renderSeason(el, seasonNum, episode, playerId) {
       <div>
         <div id="chart"></div>
         <p class="note">${chartHint}</p>
+        ${liveNotes(meta)}
         ${betNote(meta)}
         <div class="duel" id="duel" hidden></div>
       </div>

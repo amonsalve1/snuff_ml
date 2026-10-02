@@ -185,8 +185,39 @@ def load_table(table: str, *, fetch: bool = True) -> pd.DataFrame:
         df["confessional_time"] = pd.to_numeric(df["confessional_time"], errors="coerce")
     for col in _INT_COLUMNS & set(df.columns):
         df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+    df = _merge_manual(table, df)
     _validate(table, df)
     return df
+
+
+def manual_live_dir() -> Path:
+    return config.DATA_DIR / "manual" / "live"
+
+
+def _merge_manual(table: str, df: pd.DataFrame) -> pd.DataFrame:
+    """overlay hand entered rows for an airing season.
+
+    survivoR publishes a few days behind broadcast, so a live season sits half
+    empty until the maintainer catches up. anything dropped in
+    data/manual/live/<table>.csv gets stacked on top, and a manual row wins over
+    a cached one with the same (season, episode, castaway_id). provisional by
+    definition: delete the file once the real data lands.
+    """
+    path = manual_live_dir() / f"{table}.csv"
+    if not path.exists():
+        return df
+    extra = pd.read_csv(path, low_memory=False)
+    if extra.empty:
+        return df
+    keys = [k for k in ("season", "episode", "castaway_id") if k in df.columns and k in extra.columns]
+    if keys:
+        merged = pd.concat([df, extra], ignore_index=True)
+        merged = merged.drop_duplicates(subset=keys, keep="last")
+    else:
+        merged = pd.concat([df, extra], ignore_index=True)
+    for col in _INT_COLUMNS & set(merged.columns):
+        merged[col] = pd.to_numeric(merged[col], errors="coerce").astype("Int64")
+    return merged.reset_index(drop=True)
 
 
 def completed_seasons(castaways: pd.DataFrame) -> list[int]:
