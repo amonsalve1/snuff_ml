@@ -484,6 +484,42 @@ def build_insights(preds: pd.DataFrame) -> dict:
     }
 
 
+# track record bins: odds against an even split, and how many were left
+TRACK_HEAT_BINS = [0, 0.5, 0.8, 1.25, 2, 3, 99]
+TRACK_ALIVE_BINS = [0, 6, 9, 13, 99]
+
+
+def build_track(preds: pd.DataFrame) -> dict:
+    """How often players the model rated at a given level went on to win.
+
+    Every row is loso so this is out of sample. Counts are kept per season so a
+    season page can leave its own season out of its own track record.
+    """
+    p = preds.copy()
+    p["n"] = p.groupby(["season", "episode"])["win_prob"].transform("size")
+    p["heat"] = p["win_prob"] * p["n"]
+    p["hb"] = pd.cut(p["heat"], TRACK_HEAT_BINS, right=False, labels=False)
+    p["nb"] = pd.cut(p["n"], TRACK_ALIVE_BINS, right=True, labels=False)
+    cells = (
+        p.groupby(["season", "nb", "hb"])
+        .agg(won=("is_winner", "sum"), of=("is_winner", "size"), inv_n=("n", lambda s: float((1 / s).sum())),
+             heat=("heat", "sum"))
+        .reset_index()
+    )
+    seasons: dict[str, list] = {}
+    for r in cells.itertuples():
+        seasons.setdefault(str(int(r.season)), []).append(
+            [int(r.nb), int(r.hb), int(r.won), int(r.of), round(r.inv_n, 4), round(r.heat, 3)]
+        )
+    return {
+        "heat_bins": TRACK_HEAT_BINS,
+        "alive_bins": TRACK_ALIVE_BINS,
+        # sums, not means, so a page can drop one season and still average
+        "fields": ["alive_bin", "heat_bin", "won", "of", "sum_1_over_n", "sum_heat"],
+        "seasons": seasons,
+    }
+
+
 def check_why_adds_up(rel: pd.DataFrame, rows: pd.DataFrame) -> None:
     """The factors have to explain the odds they sit under, or stop the export.
 
@@ -567,6 +603,7 @@ def main() -> None:
     for s in sorted(both["season"].unique()):
         dump(build_season(both, both_contrib, int(s)), out / "seasons" / f"s{int(s):02d}.json")
     dump(build_insights(preds), out / "insights.json")
+    dump(build_track(preds), out / "track.json")
     sanity_check(preds, out, live)
     total_kb = sum(f.stat().st_size for f in out.rglob("*.json")) / 1024
     print(f"wrote docs/data ({total_kb:.0f} KB)")
