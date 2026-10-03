@@ -28,6 +28,7 @@ snuffml = "snuffml.cli:app"
 
 [dependency-groups]
 dev = [
+    "fonttools[woff]>=4.63.0",
     "pytest>=8",
     "ruff>=0.6",
 ]
