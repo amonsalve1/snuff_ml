@@ -1,0 +1,272 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Players · snuffml</title>
+<meta name="description" content="Every Survivor castaway and every run they had, on one chart: what the edit thought of them, season by season.">
+<meta property="og:title" content="Players · snuffml">
+<meta property="og:description" content="Every Survivor castaway and every run they had, on one chart: what the edit thought of them, season by season.">
+<meta property="og:image" content="https://amonsalve1.github.io/snuff_ml/banner.png">
+<meta name="theme-color" content="#0a0e24">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/dm-mono-500.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="pages.css?v=31">
+<style>
+.find{margin:36px 0 6px;display:grid;grid-template-columns:minmax(0,560px) 1fr;gap:24px;align-items:end}
+.search{position:relative}
+.search input{width:100%;font:500 20px "Nunito Sans";padding:16px 18px 16px 48px;border:2px solid var(--ink);border-radius:4px;background:#fffdf8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Ccircle cx='8.5' cy='8.5' r='6' fill='none' stroke='%231d1a16' stroke-width='2'/%3E%3Cpath d='M13 13l5 5' stroke='%231d1a16' stroke-width='2'/%3E%3C/svg%3E") no-repeat 16px 50%;color:var(--ink)}
+.search input:focus{outline:3px solid var(--flame);outline-offset:2px}
+.results{position:absolute;left:0;right:0;top:100%;z-index:5;margin:6px 0 0;padding:4px;list-style:none;background:#fffdf8;border:1px solid var(--ink);border-radius:4px;box-shadow:0 14px 30px -10px rgba(30,20,10,.3)}
+.results li{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;border-radius:3px;cursor:pointer}
+.results li[aria-selected="true"],.results li:hover{background:var(--paper-2)}
+.results .seasons{font:500 12px "DM Mono";color:var(--muted)}
+.pills{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pills span{font-size:13px;color:var(--muted);margin-right:2px}
+.pills a{font:600 14px "Nunito Sans";text-decoration:none;padding:6px 12px;border:1px solid var(--rule);border-radius:999px;background:#fbf7ee;transition:border-color .15s}
+.pills a:hover,.pills a:focus-visible{border-color:var(--flame);outline:none}
+.listhead{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:44px 0 14px;flex-wrap:wrap}
+.listhead h2{font:600 30px Fraunces;margin:0}.listhead p{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.sort{display:flex}.sort button{all:unset;cursor:pointer;font:500 12.5px "DM Mono";padding:7px 12px;border:1px solid var(--ink)}
+.sort button+button{border-left:0}.sort button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.sort button:focus-visible{outline:2px solid var(--flame);outline-offset:2px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{display:block;text-decoration:none;padding:14px 16px 12px;background:#fbf7ee;border:1px solid var(--rule);border-top:3px solid var(--rule);border-radius:4px;transition:transform .15s,border-color .15s,box-shadow .15s}
+.card.won{border-top-color:var(--flame)}
+.card:hover,.card:focus-visible{transform:translateY(-3px);border-color:var(--flame);box-shadow:0 10px 22px -16px rgba(120,50,10,.6);outline:none}
+.card .ct{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.card b{font:600 19px Fraunces}.card .meta{font:500 11.5px "DM Mono";color:var(--muted);white-space:nowrap}
+.card .meta em{font-style:normal;color:var(--flame)}
+.career{display:flex;gap:6px;margin-top:10px}
+.run{flex:1;min-width:0}
+.run svg{display:block;width:100%;height:30px;background:#f1eadb;border-radius:3px}
+.run span{display:block;font:500 10.5px "DM Mono";color:var(--muted);margin-top:3px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.run.w span{color:var(--flame);font-weight:600}
+/* one player */
+.back{display:inline-block;margin-top:30px;font:500 13px "DM Mono";color:var(--muted);text-decoration:none}.back:hover{color:var(--flame)}
+.who{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:30px;align-items:end;margin:10px 0 18px}
+.who h1{font:600 clamp(40px,5.4vw,64px)/1 Fraunces;letter-spacing:-1.8px;margin:0}
+.who .line{font-size:17px;color:var(--muted);margin:10px 0 0}.who .line b{color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:2px solid var(--ink);border-bottom:1px solid var(--rule);margin:6px 0 26px}
+.stats>div{padding:12px 14px 12px 0}.stats>div+div{padding-left:14px;border-left:1px solid var(--rule)}
+.stats b{display:block;font:500 26px "DM Mono";letter-spacing:-1px;line-height:1.15}
+.stats .hot b{color:var(--flame)}.stats span{font-size:12.5px;color:var(--muted)}
+.viz{background:#fbf7ee;border:1px solid var(--rule);border-radius:4px;padding:16px 18px 10px}
+.cap{font:500 11.5px "DM Mono";letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.viz .note{font-size:12.5px;color:var(--muted);margin:4px 0 2px}
+.runline{transition:opacity .15s,stroke-width .15s}
+.runlist{display:grid;gap:10px;margin-top:22px}
+.rc{display:grid;grid-template-columns:8px 1.4fr 1fr 1fr 1fr auto;gap:18px;align-items:center;padding:14px 18px 14px 0;background:#fbf7ee;border:1px solid var(--rule);border-radius:4px;transition:border-color .15s}
+.rc.on{border-color:var(--ink)}
+.rc .sw{align-self:stretch;border-radius:4px 0 0 4px}
+.rc h3{font:600 18px Fraunces;margin:0}.rc h3 small{display:block;font:500 11.5px "DM Mono";color:var(--muted);margin-top:2px}
+.rc .k{font:500 11px "DM Mono";text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.rc .v{font:500 16px "DM Mono"}.rc .v small{font-size:11.5px;color:var(--muted)}
+.badge{display:inline-block;font:600 12px "DM Mono";padding:4px 9px;border-radius:999px;background:var(--paper-2);color:var(--ink)}
+.badge.won{background:var(--flame);color:#fff}.badge.ftc{background:#e0a17f;color:#2e2016}.badge.live{background:none;border:1.5px dashed var(--flame);color:var(--flame)}
+.replay{font:500 13px "DM Mono";color:var(--flame);text-decoration:none;padding:8px 12px;border:1px solid var(--flame);border-radius:3px;white-space:nowrap}
+.replay:hover,.replay:focus-visible{background:var(--flame);color:#fff;outline:none}
+@media (max-width:900px){.find{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.stats>div:nth-child(odd){border-left:0;padding-left:0}.rc{grid-template-columns:8px 1fr 1fr;row-gap:8px}.who{grid-template-columns:1fr}}
+</style>
+</head><body>
+<section class="band" id="hero"></section>
+<main>
+  <div class="find"><div class="search" role="search">
+    <input id="q" type="search" placeholder="Search any castaway — Cirie, Parvati, Boston Rob…" autocomplete="off"
+      role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="search castaways">
+    <ul class="results" id="results" role="listbox" hidden></ul>
+  </div><div class="pills" id="pills"></div></div>
+  <div id="view"><p class="small">loading every season…</p></div>
+</main>
+<footer class="site-foot"><p><b>snuffml</b> · predicting Survivor winners from nothing but the edit.
+  Every probability is out of sample: the model never saw the season it's predicting.
+  <a href="method.html">How it works</a> · <a href="https://github.com/amonsalve1/snuff_ml">code and data on GitHub</a></p></footer>
+<script type="module">
+import { loadIndex, loadAll, heat, ranked, slug, ordinal } from "./js/common.js?v=31";
+import { band, nav } from "./js/band.js?v=31";
+
+const hero = document.getElementById("hero");
+hero.innerHTML = nav("Players") + `<div class="copy"><div class="kicker">Every castaway, every run</div>
+  <h1>What the edit thought of them</h1><p class="deck">Search anyone. Returnees get every season on one chart.</p></div>`;
+band(hero, 0.84);
+
+const [index, seasons] = await Promise.all([loadIndex(), loadAll()]);
+const meta = new Map(index.seasons.map((x) => [x.season, x]));
+
+// castaways by survivoR id, each with every run they had
+const people = new Map();
+for (const s of seasons) {
+  const m = meta.get(s.season), n = s.episodes.length;
+  for (const p of s.players) {
+    const live = !!m.live;
+    const lastIdx = p.probs.reduce((k, v, j) => (v != null ? j : k), -1);
+    // ftc comes from the export: several people can leave inside a finale
+    // episode, so being alive at its start isn't the same as making the end
+    const finish = p.winner ? "won"
+      : live ? (p.boot ? `out ep ${p.boot}` : "still in")
+      : p.ftc ? "final tribal" : p.boot ? `out ep ${p.boot}` : "out in the finale";
+    const peakIdx = p.probs.reduce((b, v, j) => (v != null && v > (p.probs[b] ?? -1) ? j : b), Math.max(0, p.probs.findIndex((v) => v != null)));
+    const run = { s, p, finish, live, peakIdx, lastIdx, peak: p.probs[peakIdx], lastRank: lastIdx >= 0 ? ranked(s, lastIdx).indexOf(p) + 1 : null, nAt: lastIdx >= 0 ? ranked(s, lastIdx).length : null };
+    if (!people.has(p.id)) people.set(p.id, { id: p.id, names: new Set(), runs: [] });
+    const who = people.get(p.id);
+    who.names.add(p.name); who.runs.push(run);
+  }
+}
+for (const who of people.values()) {
+  who.name = [...who.names].sort((a, b) => b.length - a.length)[0];
+  who.runs.sort((a, b) => a.s.season - b.s.season);
+  who.won = who.runs.filter((r) => r.finish === "won").length;
+}
+const all = [...people.values()];
+const href = (who) => `#${who.id}/${slug(who.name)}`;
+const sname = (r) => { const nm = meta.get(r.s.season).name; return nm && !/^\d+$/.test(nm) ? nm : `Survivor ${r.s.season}`; };
+// one tiny chart per season: the odds line, ending in ★ for a win or ✕ for a boot
+function spark(r) {
+  const n = r.live ? Math.max(r.s.episodes.length, meta.get(r.s.season).expected_episodes || 0) : r.s.episodes.length;
+  const X = (j) => 3 + (j / Math.max(1, n - 1)) * 54, Y = (v) => 26 - ((Math.log2(Math.max(0.125, Math.min(5, v))) + 3) / 5.32) * 22;
+  const pts = []; r.s.episodes.forEach((_, j) => { const v = heat(r.s, r.p, j); if (v != null) pts.push([X(j), Y(v)]); });
+  if (!pts.length) return "";
+  const c = r.finish === "won" ? "#c2410c" : "#1d1a16", [ex, ey] = pts[pts.length - 1];
+  const end = r.finish === "won" ? `<circle cx="${ex}" cy="${ey}" r="2.6" fill="${c}"/>` : r.finish.startsWith("out") ? `<path d="M${ex - 2} ${ey - 2}l4 4m0-4l-4 4" stroke="${c}" stroke-width="1.3"/>` : `<circle cx="${ex}" cy="${ey}" r="2" fill="#f1eadb" stroke="${c}"/>`;
+  return `<svg viewBox="0 0 60 30" preserveAspectRatio="none" aria-hidden="true"><line x1="3" x2="57" y1="${Y(1)}" y2="${Y(1)}" stroke="#cfc4ac" stroke-width=".6"/><polyline points="${pts.map((p) => p.join(",")).join(" ")}" fill="none" stroke="${c}" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>${end}</svg>`;
+}
+const runTile = (r) => `<div class="run ${r.finish === "won" ? "w" : ""}">${spark(r)}<span>S${r.s.season}${r.finish === "won" ? " ★" : ""}</span></div>`;
+
+// search: prefix of any word in any of their names first, then substring;
+// more runs breaks ties because that's who people go looking for
+function search(q) {
+  q = q.trim().toLowerCase();
+  if (!q) return [];
+  const score = (who) => {
+    let best = 0;
+    for (const n of who.names) {
+      const l = n.toLowerCase();
+      if (l.startsWith(q)) best = Math.max(best, 3);
+      else if (l.split(/[\s.]+/).some((w) => w.startsWith(q))) best = Math.max(best, 2);
+      else if (l.includes(q)) best = Math.max(best, 1);
+    }
+    return best;
+  };
+  return all.map((w) => [score(w), w]).filter(([v]) => v > 0)
+    .sort((a, b) => b[0] - a[0] || b[1].runs.length - a[1].runs.length || a[1].name.localeCompare(b[1].name)).slice(0, 8).map(([, w]) => w);
+}
+const q = document.getElementById("q"), list = document.getElementById("results");
+let hits = [], active = -1;
+function showResults() {
+  hits = search(q.value); active = hits.length ? 0 : -1;
+  list.hidden = !hits.length; q.setAttribute("aria-expanded", String(!!hits.length));
+  list.innerHTML = hits.map((w, k) => `<li role="option" id="r${k}" aria-selected="${k === active}" data-k="${k}"><span>${w.name}</span><span class="seasons">${w.runs.map((r) => `S${r.s.season}`).join(" ")}</span></li>`).join("");
+  q.setAttribute("aria-activedescendant", active >= 0 ? `r${active}` : "");
+}
+const choose = (w) => { list.hidden = true; q.setAttribute("aria-expanded", "false"); q.value = ""; location.hash = href(w); };
+q.addEventListener("input", showResults);
+q.addEventListener("keydown", (e) => {
+  if (list.hidden) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    active = (active + (e.key === "ArrowDown" ? 1 : -1) + hits.length) % hits.length;
+    [...list.children].forEach((li, k) => li.setAttribute("aria-selected", String(k === active)));
+    q.setAttribute("aria-activedescendant", `r${active}`);
+  } else if (e.key === "Enter" && active >= 0) { e.preventDefault(); choose(hits[active]); }
+  else if (e.key === "Escape") { list.hidden = true; q.setAttribute("aria-expanded", "false"); }
+});
+list.addEventListener("mousedown", (e) => { const li = e.target.closest("li"); if (li) { e.preventDefault(); choose(hits[+li.dataset.k]); } });
+q.addEventListener("blur", () => setTimeout(() => { list.hidden = true; q.setAttribute("aria-expanded", "false"); }, 120));
+
+// every run on one chart: x is how far through that season, so a 13 and a
+// 16 episode season line up; y is the season view's odds-vs-even axis
+const COLORS = ["#c2410c", "#24516b", "#1d1a16", "#a86a0c", "#4d6b31", "#7a3b6a"];
+function runsChart(who) {
+  const W = 980, H = 300, P = { l: 44, r: 150, t: 14, b: 30 };
+  const L0 = Math.log2(0.125), L1 = Math.log2(5);
+  const x = (f) => P.l + f * (W - P.l - P.r);
+  const y = (v) => H - P.b - ((Math.log2(Math.max(0.125, Math.min(5, v))) - L0) / (L1 - L0)) * (H - P.t - P.b);
+  const shortFinish = (f) => f === "won" ? "won" : f === "final tribal" ? "final tribal" : f === "out in the finale" ? "finale" : f === "still in" ? "still in" : f.replace("out ", "");
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${who.name}'s odds in each of their seasons">`;
+  for (const g of [0.25, 0.5, 1, 2, 4]) svg += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(g)}" y2="${y(g)}" stroke="${g === 1 ? "#1d1a16" : "#ddd3c0"}" stroke-width="${g === 1 ? 1.5 : 1}" ${g === 1 ? "" : 'stroke-dasharray="2 4"'}/>
+    <text x="${P.l - 8}" y="${y(g) + 4}" text-anchor="end" font-size="11" font-family="DM Mono" fill="#6b6457" font-weight="${g === 1 ? 600 : 400}">${g === 1 ? "even" : g + "x"}</text>`;
+  for (const [f, t] of [[0, "premiere"], [0.5, "halfway"], [1, "finale"]]) svg += `<text x="${x(f)}" y="${H - 8}" text-anchor="${f === 0 ? "start" : f === 1 ? "end" : "middle"}" font-size="11" font-family="DM Mono" fill="#6b6457">${t}</text>`;
+  const labels = [];
+  who.runs.forEach((r, k) => {
+    const n = r.live ? Math.max(r.s.episodes.length, meta.get(r.s.season).expected_episodes || 0) : r.s.episodes.length;
+    const pts = [];
+    r.s.episodes.forEach((_, j) => { const v = heat(r.s, r.p, j); if (v != null) pts.push([x(j / Math.max(1, n - 1)), y(v)]); });
+    if (!pts.length) return;
+    const c = COLORS[k % COLORS.length];
+    svg += `<polyline class="runline" data-k="${k}" points="${pts.map((p) => p.join(",")).join(" ")}" fill="none" stroke="${c}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+      <polyline class="runhit" data-k="${k}" points="${pts.map((p) => p.join(",")).join(" ")}" fill="none" stroke="transparent" stroke-width="12" style="cursor:pointer"/>`;
+    const [ex, ey] = pts[pts.length - 1];
+    svg += r.finish === "won" ? `<circle cx="${ex}" cy="${ey}" r="5" fill="${c}"/>` : r.finish.startsWith("out") ? `<text x="${ex}" y="${ey + 4}" text-anchor="middle" font-size="12" font-family="DM Mono" fill="${c}">✕</text>` : `<circle cx="${ex}" cy="${ey}" r="4" fill="#f5efe3" stroke="${c}" stroke-width="2"/>`;
+    labels.push({ y: ey, ex, c, t: `S${r.s.season} · ${shortFinish(r.finish)}`, k });
+  });
+  labels.sort((a, b) => a.y - b.y);
+  for (let k = 1; k < labels.length; k++) if (labels[k].y - labels[k - 1].y < 16) labels[k].y = labels[k - 1].y + 16;
+  for (const lb of labels) svg += `<line x1="${lb.ex + 6}" y1="${lb.y}" x2="${W - P.r + 2}" y2="${lb.y}" stroke="${lb.c}" stroke-dasharray="1 3" opacity=".6"/>
+    <text class="runline" data-k="${lb.k}" x="${W - P.r + 6}" y="${lb.y + 4}" font-size="12.5" font-family="DM Mono" font-weight="600" fill="${lb.c}">${lb.t}</text>`;
+  return svg + "</svg>";
+}
+
+function playerView(who) {
+  const fin = (r) => r.finish === "won" ? 4 : r.finish === "final tribal" ? 3 : r.finish === "still in" ? 2.5 : r.finish === "out in the finale" ? 2 : (r.lastIdx + 1) / r.s.episodes.length;
+  const best = who.runs.slice().sort((a, b) => fin(b) - fin(a))[0];
+  const bestText = best.finish === "won" ? `won ${sname(best)}` : best.finish === "final tribal" ? `final tribal, S${best.s.season}` : best.finish === "still in" ? `still in, S${best.s.season}` : `${best.finish}, S${best.s.season}`;
+  const pk = who.runs.reduce((a, r) => (r.peak > a.peak ? r : a));
+  const eps = who.runs.reduce((a, r) => a + r.p.probs.filter((v) => v != null).length, 0);
+  const badge = (r) => `<span class="badge ${r.finish === "won" ? "won" : r.finish === "final tribal" ? "ftc" : r.finish === "still in" ? "live" : ""}">${r.finish === "won" ? "★ won" : r.finish}</span>`;
+  return `<a class="back" href="#">← all players</a>
+  <div class="who"><div><h1>${who.name}</h1>
+    <p class="line">${who.runs.length === 1 ? "One season" : `${who.runs.length} seasons`}, from ${sname(who.runs[0])} to ${sname(who.runs[who.runs.length - 1])}.</p></div></div>
+  <div class="stats">
+    <div><b>${who.runs.length}</b><span>${who.runs.length === 1 ? "season" : "seasons"}</span></div>
+    <div class="${who.won ? "hot" : ""}"><b>${who.won}</b><span>${who.won === 1 ? "win" : "wins"}</span></div>
+    <div><b style="font-size:17px;line-height:1.35">${bestText}</b><span>best finish</span></div>
+    <div class="hot"><b>${(pk.peak * 100).toFixed(1)}%</b><span>peak odds, S${pk.s.season} ep ${pk.s.episodes[pk.peakIdx]}</span></div>
+    <div><b>${eps}</b><span>episodes on the edit</span></div>
+  </div>
+  <div class="viz"><div class="cap">Every season, premiere to finale · odds against an even split</div>${runsChart(who)}
+    <p class="note">Each season is stretched to the same width so the runs line up. ✕ is a boot, a filled dot a win. Hover a line to find its season below.</p></div>
+  <div class="runlist">${who.runs.map((r, k) => `
+    <div class="rc" data-k="${k}"><span class="sw" style="background:${COLORS[k % COLORS.length]}"></span>
+      <h3>S${r.s.season}<small>${sname(r)}</small></h3>
+      <div><div class="k">finish</div>${badge(r)}</div>
+      <div><div class="k">peak odds</div><div class="v">${(r.peak * 100).toFixed(1)}% <small>ep ${r.s.episodes[r.peakIdx]}</small></div></div>
+      <div><div class="k">last read</div><div class="v">${r.lastRank ? `${ordinal(r.lastRank)} <small>of ${r.nAt}</small>` : "—"}</div></div>
+      <a class="replay" href="index.html#s${r.s.season}/ep${r.s.episodes[r.peakIdx]}/${slug(r.p.name)}">replay their peak →</a></div>`).join("")}</div>`;
+}
+
+let sortBy = "seasons";
+function homeView() {
+  const multi = all.filter((w) => w.runs.length > 1);
+  const order = { seasons: (a, b) => b.runs.length - a.runs.length || b.won - a.won || a.name.localeCompare(b.name),
+    wins: (a, b) => b.won - a.won || b.runs.length - a.runs.length || a.name.localeCompare(b.name),
+    az: (a, b) => a.name.localeCompare(b.name) }[sortBy];
+  return `<div class="listhead"><div><h2>Played more than once</h2><p>${multi.length} castaways have more than one season. Each strip is one season, read left to right: ★ a win, ✕ a boot.</p></div>
+    <div class="sort" role="group" aria-label="sort">${[["seasons", "most seasons"], ["wins", "most wins"], ["az", "A–Z"]].map(([k, l]) =>
+      `<button type="button" data-sort="${k}" aria-pressed="${k === sortBy}">${l}</button>`).join("")}</div></div>
+  <div class="cards">${multi.sort(order).map((w) => `<a class="card ${w.won ? "won" : ""}" href="${href(w)}">
+    <div class="ct"><b>${w.name}</b><span class="meta">${w.runs.length} seasons${w.won ? ` · <em>${w.won === 1 ? "won" : `won ${w.won}×`}</em>` : ""}</span></div>
+    <div class="career">${w.runs.map(runTile).join("")}</div></a>`).join("")}</div>`;
+}
+
+const view = document.getElementById("view");
+function route() {
+  const m = location.hash.match(/^#([A-Z]{2}\d+)/);
+  const who = m && people.get(m[1]);
+  view.innerHTML = who ? playerView(who) : homeView();
+  for (const b of view.querySelectorAll(".sort button")) b.addEventListener("click", () => { sortBy = b.dataset.sort; route(); });
+  // hovering a line or a card lights up the same season in both places
+  const light = (k) => {
+    for (const el of view.querySelectorAll(".runline")) el.style.opacity = k == null || el.dataset.k === k ? 1 : 0.18;
+    for (const el of view.querySelectorAll(".rc")) el.classList.toggle("on", el.dataset.k === k);
+  };
+  for (const el of view.querySelectorAll(".runhit, .rc")) {
+    el.addEventListener("pointerenter", () => light(el.dataset.k));
+    el.addEventListener("pointerleave", () => light(null));
+  }
+  document.title = who ? `${who.name} · snuffml` : "Players · snuffml";
+  if (who) window.scrollTo({ top: document.querySelector(".band").offsetHeight - 10, behavior: "instant" });
+}
+const pick = (re) => all.filter((w) => w.runs.length > 1).find((w) => re.test(w.name));
+document.getElementById("pills").innerHTML = `<span>Try</span>` + [/^cirie/i, /parvati/i, /boston rob/i, /^sandra/i, /^tony/i]
+  .map(pick).filter(Boolean).map((w) => `<a href="${href(w)}">${w.name}</a>`).join("");
+addEventListener("hashchange", route);
+route();
+</script></body></html>
