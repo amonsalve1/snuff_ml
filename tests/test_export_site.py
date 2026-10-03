@@ -229,3 +229,23 @@ def test_live_season_marks_latest_boot(monkeypatch):
     out = export_site.build_season(preds, contrib, 51)
     boots = {pl["name"]: pl["boot"] for pl in out["players"]}
     assert boots == {"Alice": None, "Bob": None, "Cara": 2}
+
+
+def test_frozen_model_refuses_a_changed_file(tmp_path, monkeypatch):
+    import hashlib
+    import json
+
+    (tmp_path / "forward").mkdir()
+    model = tmp_path / "forward" / "m.joblib"
+    model.write_bytes(b"the frozen model")
+    meta = {"model": "forward/m.joblib", "sha256": hashlib.sha256(b"the frozen model").hexdigest()}
+    (tmp_path / "forward" / "FROZEN.json").write_text(json.dumps(meta))
+    monkeypatch.setattr(export_site.config, "PROJECT_ROOT", tmp_path)
+    assert export_site.frozen_model_path() == model
+    model.write_bytes(b"quietly retrained")
+    try:
+        export_site.frozen_model_path()
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError("a changed model file must be refused")

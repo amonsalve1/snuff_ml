@@ -1,0 +1,8 @@
+{
+  "model": "forward/blend_through_s50.joblib",
+  "sha256": "9fd9a1daf5ffbd5021845fbfff246eb25414dde3c271821d333c4f353c21f1d0",
+  "trained_through": 50,
+  "frozen_at": "2026-10-03",
+  "code_commit": "d3a13dd",
+  "note": "trained on seasons 1-50 with S38 and S41 excluded, never refit. every season 51 prediction comes from this file."
+}

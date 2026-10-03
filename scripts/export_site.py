@@ -159,6 +159,17 @@ def season_is_live(season_rows: pd.DataFrame) -> bool:
     return not season_rows["made_ftc"].any()
 
 
+def frozen_model_path() -> Path:
+    meta = json.loads((config.PROJECT_ROOT / "forward" / "FROZEN.json").read_text())
+    path = config.PROJECT_ROOT / meta["model"]
+    import hashlib
+
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != meta["sha256"]:
+        raise SystemExit(f"{path.name} doesn't match forward/FROZEN.json, refusing to predict the airing season")
+    return path
+
+
 def predict_airing(preds: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Score the season that's on the air right now.
 
@@ -185,7 +196,9 @@ def predict_airing(preds: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     if not airing:
         return pd.DataFrame(), pd.DataFrame()
 
-    model = EraBlendModel.load(model_path("blend", max(done)))
+    # the airing season is the forward test, so it always comes from the frozen
+    # model in forward/, checked against its recorded hash, never a refit
+    model = EraBlendModel.load(frozen_model_path())
     rows = model.predict(panel[panel["season"].isin(airing)])
     rows = rows.sort_values(["season", "castaway_id", "episode"]).reset_index(drop=True)
     # _row has to stay unique once these get concatenated onto preds
