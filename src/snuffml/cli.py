@@ -147,6 +147,16 @@ def backtest(
 
 
 @app.command()
+def audit(gru: bool = typer.Option(True, help="include the GRU in the leaderboard (~25 min)")) -> None:
+    """The skeptic's checks: ablation, outliers kept in, model leaderboard, chance, calibration."""
+    from snuffml.eval import audit as audit_mod
+    from snuffml.features import build as build_mod
+
+    out = audit_mod.run(build_mod.load_features(), gru=gru)
+    console.print(f"audit tables written to {out}")
+
+
+@app.command()
 def study(loso: bool = typer.Option(False, help="Leave-one-season-out (slow, honest)")) -> None:
     """Regenerate the retrospective study artifacts."""
     from snuffml.eval import study as study_mod
