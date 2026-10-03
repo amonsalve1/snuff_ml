@@ -1,0 +1,57 @@
+@font-face{font-family:Fraunces;src:url(fonts/fraunces.woff2) format("woff2");font-weight:100 900}
+@font-face{font-family:"Nunito Sans";src:url(fonts/nunito-sans.woff2) format("woff2");font-weight:200 1000}
+@font-face{font-family:"DM Mono";src:url(fonts/dm-mono-400.woff2) format("woff2");font-weight:400}
+@font-face{font-family:"DM Mono";src:url(fonts/dm-mono-500.woff2) format("woff2");font-weight:500}
+:root{--paper:#f5efe3;--paper-2:#ece4d3;--ink:#1d1a16;--muted:#5f584c;--rule:#ddd3c0;--flame:#c2410c;--amber:#a86a0c;--sea:#24516b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 "Nunito Sans",sans-serif}
+a{color:inherit}
+
+/* the band: the shore renderer cropped to sky and horizon, copy in the sky */
+.band{position:relative;height:360px;overflow:hidden;background:#0a0e24;--h-ink:#f4ead8;--h-muted:#b9b4cc;--h-accent:#ff9a4a;--h-shadow:#0a0e24;--scrim:rgba(10,12,32,.62)}
+.band.day{--h-ink:#13203a;--h-muted:#2c3a52;--h-accent:#a33a08;--h-shadow:rgba(255,255,255,.35);--scrim:rgba(255,248,236,.62)}
+.band canvas{position:absolute;left:0;top:-56px;image-rendering:pixelated}
+.top{position:absolute;top:0;left:0;right:0;z-index:2;display:flex;align-items:center;gap:16px;max-width:1180px;margin:0 auto;padding:18px 28px;color:var(--h-ink)}
+.top b{font:600 21px Fraunces;display:flex;gap:8px;align-items:center}.top b img{width:22px}
+.top nav{margin-left:auto;display:flex;gap:24px;font-size:14px}
+.top nav a{color:var(--h-muted);text-decoration:none}.top nav a[aria-current]{color:var(--h-ink);font-weight:700}
+.top nav a:focus-visible{outline:2px solid var(--h-accent);outline-offset:3px}
+.copy{position:absolute;top:92px;left:0;right:0;z-index:1;text-align:center;color:var(--h-ink);padding:0 24px}
+.copy::before{content:"";position:absolute;inset:-30px 12% -20px;z-index:-1;background:radial-gradient(closest-side,var(--scrim),transparent);opacity:0;transition:opacity .6s}
+.band.assist .copy::before{opacity:1}
+.kicker{font:500 12.5px "DM Mono";letter-spacing:.16em;text-transform:uppercase;color:var(--h-accent)}
+.band h1{font:400 clamp(32px,4.4vw,56px)/1.06 Fraunces;font-style:italic;letter-spacing:-1.2px;margin:10px auto 8px;max-width:22ch;text-wrap:balance;text-shadow:0 2px 0 var(--h-shadow)}
+.band h1 span{color:var(--h-accent);font-style:normal;font-weight:600}
+.band .deck{color:var(--h-muted);font-size:17px;max-width:58ch;margin:0 auto;text-wrap:balance}
+
+/* the page */
+main{max-width:1080px;margin:0 auto;padding:12px 28px 90px}
+section.f{padding:44px 0 8px;border-bottom:1px solid var(--rule)}
+section.f:last-child{border-bottom:0}
+.num{font:500 13px "DM Mono";letter-spacing:.12em;text-transform:uppercase;color:var(--flame)}
+h2{font:600 clamp(26px,3vw,34px)/1.15 Fraunces;letter-spacing:-.6px;margin:6px 0 10px;max-width:26ch;text-wrap:balance}
+h2 em{font-style:normal;color:var(--flame)}
+p.lede{font-size:18px;line-height:1.55;color:var(--muted);max-width:62ch;margin:0 0 22px}
+p.lede b{color:var(--ink)}
+.see{display:inline-block;font:500 13px "DM Mono";color:var(--flame);text-decoration:none;border-bottom:1px solid currentColor;margin-top:14px}
+.see:hover{color:var(--ink)}
+.small{font-size:13px;color:var(--muted)}
+.mono{font-family:"DM Mono"}
+.w{display:inline-block}
+@media (max-width:760px){.top nav{gap:14px;font-size:13px}.band{height:380px}.copy{top:80px}}
+
+/* footer, every page */
+.site-foot{max-width:1080px;margin:0 auto;padding:26px 28px 46px;border-top:1px solid var(--rule);font-size:13.5px;line-height:1.6;color:var(--muted)}
+.site-foot p{margin:0;max-width:78ch}.site-foot b{color:var(--ink)}
+.site-foot a{color:var(--flame);text-decoration:none;border-bottom:1px solid currentColor}
+
+/* phones: nothing may run wider than the screen. the full phone layout is
+   still to come; this only keeps every page inside 375px */
+@media (max-width:640px){
+  .top{flex-wrap:wrap;row-gap:8px;padding:12px 16px;gap:12px}
+  .top nav{margin-left:0;width:100%;gap:18px;font-size:13.5px}
+  .copy{top:104px;padding:0 16px}
+  main{padding-left:16px;padding-right:16px}
+  .site-foot{padding-left:16px;padding-right:16px}
+  .band h1{font-size:30px}
+}
