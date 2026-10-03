@@ -1,0 +1,238 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Findings · snuffml</title>
+<meta name="description" content="What the edit gives away across 51 seasons of Survivor: the record, the episode-4 death flag, silent episodes, decoys and hidden winners.">
+<meta property="og:title" content="Findings · snuffml">
+<meta property="og:description" content="What the edit gives away across 51 seasons of Survivor: the record, the episode-4 death flag, silent episodes, decoys and hidden winners.">
+<meta property="og:image" content="https://amonsalve1.github.io/snuff_ml/banner.png">
+<meta name="theme-color" content="#0a0e24">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/dm-mono-500.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="pages.css?v=31">
+<style>
+/* headline numbers */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:34px 0 10px}
+.tile{display:block;text-decoration:none;padding:16px 18px 14px;border-radius:4px;background:#fbf7ee;border:1px solid var(--rule);border-top:3px solid var(--flame);color:var(--ink);transition:transform .15s,border-color .15s,box-shadow .15s}
+.tile:hover,.tile:focus-visible{transform:translateY(-3px);border-color:var(--flame);box-shadow:0 8px 20px -14px rgba(120,50,10,.5);outline:none}
+.tile b{display:block;font:500 34px/1 "DM Mono";letter-spacing:-1.5px;color:var(--flame)}
+.tile span{display:block;font-size:14px;line-height:1.45;margin-top:10px;color:var(--ink)}
+.tile small{display:block;margin-top:12px;font:500 11px "DM Mono";color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.tile small::after{content:" ↓";color:var(--flame)}
+/* a finding: number and words left, the picture right */
+.feat{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:48px;align-items:center;padding:60px 0;border-bottom:1px solid var(--rule)}
+.feat.wide{grid-template-columns:1fr;gap:20px}
+.big{font:500 64px/0.95 Fraunces;letter-spacing:-2.5px;color:var(--flame)}
+.big small{font-size:26px;letter-spacing:-.5px;color:var(--muted)}
+.feat h2{font-size:28px;margin:10px 0 10px;max-width:none}
+.feat p{font-size:16.5px;line-height:1.6;color:var(--muted);margin:0 0 10px}.feat p b{color:var(--ink)}
+.viz{background:#fbf7ee;border:1px solid var(--rule);border-radius:4px;padding:18px 20px}
+.cap{font:500 11.5px "DM Mono";letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+/* record */
+.record-era{display:grid;grid-template-columns:90px minmax(0,1fr) 170px;gap:16px;align-items:center;margin:8px 0}
+.record-era .era{font:500 12px "DM Mono";text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.cells{display:grid;grid-template-columns:repeat(20,1fr);gap:4px}
+.cell{display:grid;place-items:center;height:40px;font:500 12px "DM Mono";text-decoration:none;border-radius:3px;color:#fff;transition:transform .15s}
+.cell:hover,.cell:focus-visible{transform:translateY(-3px);outline:2px solid var(--ink);outline-offset:1px}
+.cell.called{background:var(--flame)}.cell.top3{background:#e0a17f;color:#2e2016}.cell.missed{background:var(--sea)}
+.cell.airing{background:transparent;color:var(--flame);outline:2px dashed var(--flame);outline-offset:-2px;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}@media (prefers-reduced-motion:reduce){.cell.airing{animation:none}}
+.tally{font:500 13px "DM Mono";color:var(--muted);white-space:nowrap}.tally b{color:var(--ink);font-size:15px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:6px}
+.vsbase{display:flex;gap:28px;margin-top:4px}
+.vsbase{gap:40px;margin:6px 0 4px}.vsbase div{max-width:220px}
+.vsbase div b{display:block;font:500 34px "DM Mono";letter-spacing:-1px}.vsbase b small{font-size:18px;color:var(--muted);letter-spacing:0}
+.vsbase b .hot{color:var(--flame)}.vsbase div>span{display:block;font-size:13px;line-height:1.4;color:var(--muted);margin-top:2px}
+/* death flag: holder above, winner below, per season */
+.fh{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;margin-bottom:4px}
+.fh .axis{position:relative;height:16px}.fh .axis span{position:absolute;transform:translateX(-50%);font:500 10.5px "DM Mono";color:var(--muted)}
+.fh .axis span.p{color:var(--flame);font-weight:600}
+.frow{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center;padding:4px 0;border-top:1px solid var(--rule);text-decoration:none}
+.frow:hover .lanes .h{background:var(--flame)}
+.frow .s{font:500 12px "DM Mono";color:var(--muted)}
+.lanes{position:relative;height:30px}
+.lanes i{position:absolute;height:10px;border-radius:2px}
+.lanes .h{top:2px;background:var(--ink)}.lanes .w{top:17px;background:#e0a17f}
+.lanes .ep4{position:absolute;top:-4px;bottom:-4px;width:0;border-left:1.5px dashed var(--flame)}
+.lanes span{position:absolute;font:500 10.5px "DM Mono";white-space:nowrap;line-height:10px}
+.lanes .hn{top:2px;color:var(--ink)}.lanes .wn{top:17px;color:#8a3108}
+.fkey{display:flex;gap:18px;margin-top:10px;font-size:13px;color:var(--muted)}.fkey i{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:6px}
+/* dots */
+.dots3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.era-dots .pct{font:500 34px/1 "DM Mono";letter-spacing:-1px}.era-dots .pct.hot{color:var(--flame)}
+.era-dots .lab{font:500 11px "DM Mono";text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
+.dotgrid{display:grid;grid-template-columns:repeat(5,14px);gap:5px;margin:10px 0 6px}
+.dotgrid i{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--ink)}.dotgrid i.on{background:var(--ink)}
+.era-dots small{font-size:12.5px;color:var(--muted)}
+/* immunity */
+.imm{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.imm h3{font:600 15px Fraunces;margin:0 0 8px}
+.ibar{display:grid;grid-template-columns:52px minmax(0,1fr);gap:8px;align-items:center;margin:7px 0}
+.ibar .e{font:500 11px "DM Mono";text-transform:uppercase;color:var(--muted)}
+.ibar .pair{display:grid;gap:3px}
+.ibar .pair i{display:block;height:11px;border-radius:2px;position:relative}
+.ibar .pair i span{position:absolute;left:calc(100% + 6px);top:-2px;font:500 11px "DM Mono";color:var(--ink);white-space:nowrap}
+.ibar .pair .wi{background:var(--flame)}.ibar .pair .oi{background:#b9ad97}
+/* small multiples */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.m{display:block;text-decoration:none;background:#fbf7ee;border:1px solid var(--rule);border-radius:4px;padding:12px 14px 8px;transition:border-color .15s,transform .15s}
+.m:hover,.m:focus-visible{border-color:var(--flame);transform:translateY(-2px);outline:none}
+.m h3{font:600 17px Fraunces;margin:0}.m p{margin:2px 0 4px;font-size:13px;color:var(--muted)}
+.m .k{display:flex;gap:12px;font:500 10.5px "DM Mono";color:var(--muted)}.m .k i{display:inline-block;width:10px;height:3px;vertical-align:3px;margin-right:4px}
+.see{display:inline-block;font:500 13px "DM Mono";color:var(--flame);text-decoration:none;border-bottom:1px solid currentColor;margin-top:6px}
+@media (max-width:640px){.lanes span{font-size:9.5px}.frow{grid-template-columns:34px minmax(0,1fr)}.fh{grid-template-columns:34px minmax(0,1fr)}#flag .viz{overflow:hidden;padding-left:14px;padding-right:14px}}
+@media (max-width:900px){.tiles{grid-template-columns:1fr 1fr}.feat{grid-template-columns:1fr;gap:20px}.grid{grid-template-columns:1fr 1fr}.record-era{grid-template-columns:1fr}.cells{grid-template-columns:repeat(10,1fr)}.imm{grid-template-columns:1fr}}
+</style>
+</head><body>
+<section class="band" id="hero"></section>
+<main id="main"><p class="small">loading every season…</p></main>
+<footer class="site-foot"><p><b>snuffml</b> · predicting Survivor winners from nothing but the edit.
+  Every probability is out of sample: the model never saw the season it's predicting.
+  <a href="method.html">How it works</a> · <a href="https://github.com/amonsalve1/snuff_ml">code and data on GitHub</a></p></footer>
+<script type="module">
+import { loadIndex, loadAll, ranked, slug } from "./js/common.js?v=31";
+import { band, nav } from "./js/band.js?v=31";
+import { mini } from "./js/mini.js?v=31";
+
+const hero = document.getElementById("hero");
+hero.innerHTML = nav("Findings") + `<div class="copy"><div class="kicker">51 seasons · out of sample</div>
+  <h1>What the edit gives away</h1><p class="deck">Every number here comes from a model that never saw the season it was predicting.</p></div>`;
+band(hero, 0.55);
+
+const [index, ins, seasons] = await Promise.all([loadIndex(), fetch("data/insights.json", { cache: "no-cache" }).then((r) => r.json()), loadAll()]);
+const bySeason = new Map(seasons.map((s) => [s.season, s]));
+const meta = (n) => index.seasons.find((x) => x.season === n);
+const finished = index.seasons.filter((x) => !x.live);
+const frame = (s, i, p) => `index.html#s${s.season}/ep${s.episodes[i]}/${slug(p.name)}`;
+const pc = (v) => `${Math.round(v * 100)}%`;
+
+// the record against blind guessing at the final
+const called = finished.filter((x) => x.outcome === "called").length;
+const top3 = finished.filter((x) => x.outcome === "called" || x.outcome === "top3").length;
+let g1 = 0, g3 = 0;
+for (const x of finished) { const s = bySeason.get(x.season), k = ranked(s, s.episodes.length - 1).length; g1 += 1 / k; g3 += Math.min(3, k) / k; }
+const ERA = { old: "S1–20", middle: "S21–40", new: "S41 on" };
+const recordRows = ["old", "middle", "new"].map((e) => {
+  const list = index.seasons.filter((x) => x.era === e), done = list.filter((x) => !x.live);
+  const c = done.filter((x) => x.outcome === "called").length, t = done.filter((x) => x.outcome === "top3").length;
+  return `<div class="record-era"><span class="era">${ERA[e]}</span><div class="cells">${list.map((x) => {
+    const s = bySeason.get(x.season), last = s.episodes.length - 1, w = s.players.find((p) => p.winner) || ranked(s, last)[0];
+    const who = x.live ? `airing, the model likes ${x.leader}` : `${x.winner} won · ${x.outcome === "called" ? "called it" : x.outcome === "top3" ? "in its top three" : "missed"}`;
+    return `<a class="cell ${x.live ? "airing" : x.outcome}" href="${frame(s, last, w)}" title="S${x.season}: ${who}" aria-label="Season ${x.season}: ${who}">${x.season}</a>`;
+  }).join("")}</div><span class="tally"><b>${c}</b> called · <b>${c + t}</b>/${done.length} top 3</span></div>`;
+}).join("");
+
+// death flag: the flag holder's run above, the winner's below
+const flags = ins.early_flag_curse, flagWins = flags.filter((r) => r.won).length;
+const maxEps = Math.max(...flags.map((r) => bySeason.get(r.season).episodes.length));
+// leave the right of each row for the end labels; more of it on a phone
+const SPAN = matchMedia("(max-width: 640px)").matches ? 58 : 78;
+const FX = (e) => ((e - 1) / (maxEps - 1)) * SPAN;
+const flagAxis = `<div class="fh"><span></span><div class="axis">${[1, 4, 7, 10, 13].filter((e) => e <= maxEps).map((e) =>
+  `<span class="${e === 4 ? "p" : ""}" style="left:${FX(e)}%">${e === 4 ? "ep 4 · flag" : `ep ${e}`}</span>`).join("")}</div></div>`;
+const flagRows = flags.map((r) => {
+  const s = bySeason.get(r.season), n = s.episodes.length, win = meta(r.season).winner, holder = s.players.find((q) => q.name === r.holder);
+  const end = r.won ? n : r.out;
+  return `<a class="frow" href="${frame(s, Math.min(3, n - 1), holder || ranked(s, 3)[0])}" aria-label="S${r.season}: ${r.holder} led confessionals through episode 4 and went out in episode ${r.out}; ${win} won">
+    <span class="s">S${r.season}</span><span class="lanes">
+      <i class="h" style="left:0;width:${FX(end)}%"></i><span class="hn" style="left:calc(${FX(end)}% + 6px)">✕ ${r.holder}, ep ${r.out}</span>
+      <i class="w" style="left:0;width:${FX(n)}%"></i><span class="wn" style="left:calc(${FX(n)}% + 6px)">★ ${win}</span>
+      <i class="ep4" style="left:${FX(4)}%"></i></span></a>`;
+}).join("");
+
+// zero confessionals as winners, one dot each
+const zc = ins.zero_conf_winners;
+const dots = ["old", "middle", "new"].map((e) => {
+  const n = finished.filter((x) => x.era === e).length, k = Math.round(zc[e] * n);
+  return `<div class="era-dots"><div class="lab">${ERA[e]}</div><div class="pct ${e === "new" ? "hot" : ""}">${pc(zc[e])}</div>
+    <div class="dotgrid" role="img" aria-label="${k} of ${n} winners">${Array.from({ length: n }, (_, j) => `<i class="${j < k ? "on" : ""}"></i>`).join("")}</div>
+    <small>${k} of ${n} winners</small></div>`;
+}).join("");
+
+// immunity: late and early, winners against everyone else
+const im = ins.immunity;
+const iMax = Math.max(...Object.values(im).flatMap((d) => Object.values(d)));
+const immPanel = (when, w, o) => `<div><h3>${when === "late" ? "Late merge" : "Early merge"}</h3>${["old", "middle", "new"].map((e) =>
+  `<div class="ibar"><span class="e">${e}</span><span class="pair">
+    <i class="wi" style="width:${(im[e][w] / iMax) * 80}%"><span>${im[e][w]}</span></i>
+    <i class="oi" style="width:${(im[e][o] / iMax) * 80}%"><span>${im[e][o]}</span></i></span></div>`).join("")}</div>`;
+
+// small multiples
+const multiples = (rows, kind) => rows.slice(0, 6).map((r) => {
+  const s = bySeason.get(r.season), p = s.players.find((q) => q.name === r.name), w = s.players.find((q) => q.winner);
+  if (!p) return "";
+  const peak = p.probs.reduce((b, v, j) => (v != null && v > (p.probs[b] ?? -1) ? j : b), 0);
+  const lines = kind === "decoy"
+    ? [{ p: w, color: "#c2410c", width: 2.2 }, { p, color: "#1d1a16", width: 2.2, peak, peakText: pc(r.peak) }]
+    : [{ p, color: "#c2410c", width: 2.6 }];
+  const box = document.createElement("a");
+  box.className = "m";
+  box.href = frame(s, kind === "decoy" ? peak : s.episodes.length - 1, p);
+  box.innerHTML = `<h3>${r.name} <span class="small">S${r.season}</span></h3><p>${kind === "decoy" ? `peaked at ${pc(r.peak)}, then ${w.name} won` : `never above ${pc(r.peak)}, and won`}</p>`;
+  box.appendChild(mini(s, lines, { label: `${r.name}'s odds across season ${r.season}` }));
+  if (kind === "decoy") box.insertAdjacentHTML("beforeend", `<div class="k"><span><i style="background:#1d1a16"></i>${r.name}</span><span><i style="background:#c2410c"></i>${w.name}</span></div>`);
+  return box.outerHTML;
+}).join("");
+
+const newEra = finished.filter((x) => x.era === "new"), newTop3 = newEra.filter((x) => x.outcome !== "missed").length;
+const decoy = ins.decoys[0];
+document.getElementById("main").innerHTML = `
+<div class="tiles">
+  <a class="tile" href="#record"><b>${top3}/${finished.length}</b><span>winners the model had in its top three at the finale</span><small>the record</small></a>
+  <a class="tile" href="#flag"><b>0 for ${flags.length}</b><span>early confessional leaders in the new era who went on to win</span><small>the death flag</small></a>
+  <a class="tile" href="#silent"><b>${Math.round(zc.new * newEra.length)} of ${newEra.length}</b><span>new-era winners who ever had a silent episode</span><small>zero confessionals</small></a>
+  <a class="tile" href="#decoys"><b>${pc(decoy.peak)}</b><span>${decoy.name}'s peak in S${decoy.season}, the biggest edit that didn't win</span><small>the decoys</small></a>
+</div>
+
+<section class="feat wide" id="record"><div>
+  <div class="num">The record</div>
+  <h2>The model's finale pick won <em>${called} of ${finished.length}</em>. The winner was in its top three <em>${top3}</em> times.</h2>
+  <div class="vsbase">
+    <div><b><span class="hot">${top3}</span> <small>vs ${Math.round(g3)}</small></b><span>winner in its top three, against blind guessing at the final</span></div>
+    <div><b><span class="hot">${called}</span> <small>vs ${Math.round(g1)}</small></b><span>finale pick won, against blind guessing</span></div>
+    <div><b><span class="hot">${newTop3} of ${newEra.length}</span></b><span>winners in its top three in the new era</span></div></div></div>
+  <div class="viz"><div class="cap">Every season · click one to replay it</div>${recordRows}
+  <div class="legend"><span><i style="background:var(--flame)"></i>called it</span><span><i style="background:#e0a17f"></i>winner in its top three</span><span><i style="background:var(--sea)"></i>missed</span><span><i style="outline:2px dashed var(--flame);outline-offset:-2px"></i>airing now</span></div></div>
+</section>
+
+<section class="feat" id="flag"><div>
+  <div class="num">The death flag</div>
+  <div class="big">0 <small>for ${flags.length}</small></div>
+  <h2>Lead the confessionals early in the new era and you don't win.</h2>
+  <p>Whoever has the biggest share of confessionals through episode 4 has <b>never won</b> a new-era season. Some go out in episode 4, some make it to the very end. None of them win.</p>
+  <p>Each row is one season: the flag holder's run in black, the eventual winner's in orange.</p></div>
+  <div class="viz"><div class="cap">Flag holder vs eventual winner, by episode</div>${flagAxis}${flagRows}
+  <div class="fkey"><span><i style="background:var(--ink)"></i>flag holder</span><span><i style="background:#e0a17f"></i>winner</span><span><i style="border-left:1.5px dashed var(--flame);width:0;height:12px;border-radius:0"></i>flag planted, ep 4</span></div></div>
+</section>
+
+<section class="feat" id="silent"><div>
+  <div class="num">The silent episode</div>
+  <div class="big">${pc(zc.new)}</div>
+  <h2>A new-era winner almost never goes a whole episode without a confessional.</h2>
+  <p>In the first twenty seasons most winners had at least one silent episode. In the new era, <b>one of ${newEra.length}</b> did. Going quiet used to be survivable; now it's close to fatal.</p></div>
+  <div class="viz"><div class="cap">Winners with at least one zero-confessional episode, one dot each</div><div class="dots3">${dots}</div></div>
+</section>
+
+<section class="feat" id="immunity"><div>
+  <div class="num">Immunity timing</div>
+  <div class="big">late</div>
+  <h2>Winners win immunity late, not early.</h2>
+  <p>By the finale, winners average more <b>late-merge</b> immunity wins than everyone else in every era. Early-merge wins are another story: in the old era, winners had <b>fewer</b> than everyone else. Winning early made you a target.</p></div>
+  <div class="viz"><div class="cap">Average immunity wins by the finale · <span style="color:var(--flame)">winners</span> vs everyone else</div><div class="imm">${immPanel("late", "winner_late", "other_late")}${immPanel("early", "winner_early", "other_early")}</div></div>
+</section>
+
+<section class="feat wide" id="decoys"><div>
+  <div class="num">The decoys</div>
+  <h2>The biggest edits that didn't win.</h2>
+  <p>Each one's odds across their season next to the eventual winner. The grey band is the middle of the pack; the circle is their peak. Click to open that episode.</p></div>
+  <div class="grid">${multiples(ins.decoys, "decoy")}</div>
+</section>
+
+<section class="feat wide" id="hidden" style="border:0"><div>
+  <div class="num">The hidden winners</div>
+  <h2>The edits that kept the secret best.</h2>
+  <p>Winners whose odds never climbed far, most of them sitting in or under the grey band all season. The edit wasn't telling this story.</p></div>
+  <div class="grid">${multiples(ins.underdogs, "underdog")}</div>
+</section>`;
+</script></body></html>
