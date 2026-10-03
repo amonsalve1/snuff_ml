@@ -43,3 +43,33 @@ def test_unknown_table_raises():
 def test_completed_seasons(raw_dir):
     cast = survivor2py.load_table("castaways", fetch=False)
     assert survivor2py.completed_seasons(cast) == [39, 41]
+
+
+def test_manual_overlay_only_replaces_colliding_rows(tmp_path, monkeypatch):
+    # a cached table with several rows per (season, episode, castaway) - one per
+    # stage of the game, the way boot_mapping really is - in a finished season
+    cached = pd.DataFrame({
+        "season": [41, 41, 41, 51, 51],
+        "episode": [1, 1, 1, 2, 2],
+        "castaway_id": ["A", "A", "B", "C", "C"],
+        "sog_id": [1, 2, 1, 3, 4],
+        "game_status": ["In the game"] * 5,
+    })
+    manual = pd.DataFrame({
+        "season": [51, 51],
+        "episode": [2, 2],
+        "castaway_id": ["C", "C"],
+        "sog_id": [3, 4],
+        "game_status": ["In the game", "Voted out"],
+    })
+    monkeypatch.setattr(survivor2py, "manual_live_dir", lambda: tmp_path)
+    manual.to_csv(tmp_path / "boot_mapping.csv", index=False)
+    out = survivor2py._merge_manual("boot_mapping", cached)
+    # the finished season is untouched, duplicates per key included
+    s41 = out[out["season"] == 41].sort_values(["castaway_id", "sog_id"])
+    assert len(s41) == 3
+    assert list(s41["sog_id"]) == [1, 2, 1]
+    # the airing episode is exactly the manual rows, both of them
+    s51 = out[out["season"] == 51].sort_values("sog_id")
+    assert list(s51["game_status"]) == ["In the game", "Voted out"]
+    assert len(out) == 5

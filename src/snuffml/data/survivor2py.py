@@ -211,8 +211,16 @@ def _merge_manual(table: str, df: pd.DataFrame) -> pd.DataFrame:
         return df
     keys = [k for k in ("season", "episode", "castaway_id") if k in df.columns and k in extra.columns]
     if keys:
-        merged = pd.concat([df, extra], ignore_index=True)
-        merged = merged.drop_duplicates(subset=keys, keep="last")
+        # drop only the cached rows a manual row collides with. never dedupe the
+        # cache against itself: boot_mapping has a row per stage of the game and
+        # vote_history one per revote, so several rows per key is normal there
+        def norm(frame: pd.DataFrame) -> pd.DataFrame:
+            out = frame[keys].copy()
+            for k in keys:
+                out[k] = out[k].astype(str) if k == "castaway_id" else pd.to_numeric(out[k], errors="coerce")
+            return out
+        hit = norm(df).merge(norm(extra).drop_duplicates(), on=keys, how="left", indicator=True)
+        merged = pd.concat([df[(hit["_merge"] != "both").to_numpy()], extra], ignore_index=True)
     else:
         merged = pd.concat([df, extra], ignore_index=True)
     for col in _INT_COLUMNS & set(merged.columns):
