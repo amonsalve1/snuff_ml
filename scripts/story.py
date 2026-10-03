@@ -33,6 +33,7 @@ after `snuffml study --loso`:
 from __future__ import annotations
 
 import base64
+import contextlib
 import functools
 import html
 import json
@@ -65,8 +66,9 @@ SITE = "https://amonsalve1.github.io/snuff_ml/"
 W = 1000  # every picture, so they stack at one scale
 PX = beach.S  # one art pixel, same as the site
 C = W // PX  # art columns
-MIN_TEXT = 16  # nothing inside a picture is set smaller than this
+MIN_TEXT = 18  # nothing inside a picture is set smaller than this
 TX = 70  # left edge of the headline, kicker and row labels
+PHONE_W = 560  # phone versions: drawn narrower so the same type reads bigger
 
 # the mock's tokens
 BG = "#f5efe3"  # paper
@@ -625,6 +627,12 @@ SILENT_WINNERS = sum(
     int(g.loc[g["is_winner"], "zero_conf_eps"].max() > 0) for _, g in NEW.groupby("season")
 )
 assert LEADER_WINS == 0
+# the same count for everyone else who made it as far: other players still in
+# at a new-era season's last snapshot
+_final = NEW[NEW["episode"] == NEW.groupby("season")["episode"].transform("max")]
+_others = _final[~_final["is_winner"]]
+SILENT_OTHERS, N_OTHERS = int((_others["zero_conf_eps"] > 0).sum()), len(_others)
+assert SILENT_OTHERS / N_OTHERS > 3 * SILENT_WINNERS / N_NEW, "the silent-episode contrast went away"
 
 # share of rated episodes edited complex, at each player's last snapshot, in
 # the seasons with week-of-airing edgic
@@ -636,6 +644,36 @@ N_EDGIC = _rated["season"].nunique()
 assert CP_WIN > CP_REST
 
 N_FEATURES = len(build_mod.feature_columns(pd.read_parquet(config.PROCESSED_DIR / "features.parquet")))
+
+# ---------------------------------------------------------------- the audit
+# `snuffml audit` reruns the backtest with pieces taken away, other models and
+# other training choices. everything the README says about how far to trust
+# the numbers comes from these tables, never typed in.
+STUDY = config.REPORTS_DIR / "retrospective"
+
+
+def audit(name: str) -> pd.DataFrame:
+    path = STUDY / f"audit_{name}.csv"
+    if not path.exists():
+        raise SystemExit(f"{path.name} is missing: run `uv run snuffml audit` first")
+    return pd.read_csv(path)
+
+
+ABLATION, OUTLIERS, BOARD = audit("ablation"), audit("outliers"), audit("leaderboard")
+LUCK, FLAG, CALIB = audit("chance"), audit("flag"), audit("calibration")
+FULL = ABLATION.iloc[-1]
+NO_EDGIC = ABLATION[ABLATION["features"] == "confessionals + game stats"].iloc[0]
+CONF_ONLY = ABLATION[ABLATION["features"] == "confessionals only"].iloc[0]
+# the audit and the study must be the same run, or the tables contradict the story
+assert (FULL["called"], FULL["top3"]) == (CALLED, TOP3), "audit and study disagree: rerun both"
+N_EDGIC_SEASONS = int(FULL["edgic_seasons"])
+WEIGHTS = pd.read_csv(STUDY / "logit_coefficients.csv")
+WEIGHTS = WEIGHTS[WEIGHTS["feature"].str.startswith("num__")].reset_index(drop=True)
+TOP_WEIGHT = WEIGHTS.iloc[WEIGHTS["coef"].abs().idxmax()]
+assert TOP_WEIGHT["feature"] == "num__zero_any_x_new", "the copy names the heaviest weight"
+# "edgic adds nothing" is only allowed while the audit says so
+assert FULL["edgic_top3"] <= NO_EDGIC["edgic_top3"] and FULL["edgic_called"] <= NO_EDGIC["edgic_called"]
+assert FULL["edgic_skill"] <= NO_EDGIC["edgic_skill"], "edgic now helps: rewrite the edgic copy"
 
 
 def by_quarter() -> list[tuple[float, float]]:
@@ -865,6 +903,92 @@ PLOT_X0, PLOT_X1 = 190, W - 40
 CELL = (PLOT_X1 - PLOT_X0) / LAST_EP
 
 
+@contextlib.contextmanager
+def phone():
+    """Draw at phone width. A 1000-wide picture shown 343px wide sets 18px
+    type at 6px; at this width the same type comes out about 11px."""
+    global W, C
+    old = W, C
+    W, C = PHONE_W, PHONE_W // PX
+    try:
+        yield
+    finally:
+        W, C = old
+
+
+EDGIC_WORDS = {"CP": "complex", "MOR": "middle", "UTR": "quiet", "OTT": "loud", "INV": "invisible"}
+
+
+def edit_phone():
+    """The edgic grid turned on its side for phones: one row per episode, a
+    wide column each, words instead of codes."""
+    with phone():
+        rows = LAST_EP
+        h = 210 + rows * 34 + 90
+        T = THEMES["afternoon"]
+        art, top = stage(h, T, sea_x=0.86)
+        o = svg_open(h, "how the show edited her")
+        headline(o, TX - 40, 64, [("how the show ", ""), ("edited", "a"), (" her.", "")], T, size=40)
+        o.append(kicker(TX - 36, 94, "fans rate every edit, every episode", fill=T["ink"]))
+        cols = [(WINNER, 120), (FAVORITE, 340)]
+        for who, cx in cols:
+            o.append(title(cx, top + 26, who.lower(), T, size=24,
+                           fill=T["accent"] if who == WINNER else None))
+        for e in range(1, rows + 1):
+            y = top + 46 + (e - 1) * 34
+            o.append(t(TX - 30, y + 20, e, size=20, family="mono", fill=T["faint"]))
+            for who, cx in cols:
+                rt = rating(who, e)
+                if rt is None:
+                    if e == int(EXIT[who]) + 1:
+                        o.append(t(cx, y + 20, f"out after {e - 1}", size=20, family="mono",
+                                   fill=T["faint"]))
+                    continue
+                col = EDGIC_TINT[rt[0]]
+                block(art, round(cx / PX), round(y / PX), round(190 / PX), 7, beach.rgb(col))
+                tone = {"P": " +", "N": " −"}.get(rt[1] or "", "")
+                o.append(t(cx + 10, y + 20, EDGIC_WORDS[rt[0]] + tone, size=20, family="mono",
+                           fill=ON_FLAME if luminance(col) < 0.55 else NAVY))
+        o.append(t(TX - 30, h - 52, "+ good  − bad", size=19, family="mono", fill=T["muted"]))
+        o.append(t(TX - 30, h - 24, "complex: the story is about them", size=19, fill=T["muted"]))
+        finish("2-how-the-show-edited-her-phone.svg", o, art, h, T)
+
+
+def seasons_phone():
+    """The 50-season strip in two rows of 25, the two counts stacked."""
+    with phone():
+        h = 440
+        T = THEMES["night"]
+        art, top = stage(h, T, sea_x=0.86)
+        o = svg_open(h, "every finale")
+        headline(o, TX - 40, 64, [("it called ", ""), (f"{CALLED} of {N_SEASONS}", "a"), (".", "")],
+                 T, size=40)
+        o.append(kicker(TX - 36, 94, f"about twice chance (about {round(CHANCE1)})", fill=T["ink"]))
+        size, gap, per = 3, 1, 25
+        x0 = round((TX - 40) / PX)
+        sy0 = round((top + 34) / PX)
+        tone = {1: beach.rgb(T["mark"]), 2: beach.rgb(T["tan"]), 3: beach.rgb(T["tan"])}
+        for i, (s, r, _) in enumerate(FINALES):
+            x = x0 + (i % per) * (size + gap)
+            sy = sy0 + (i // per) * (size * 2 + 4)
+            if r and r <= 3:
+                block(art, x, sy, size, size * 2 + 1, tone[r], shade=0.2)
+            else:
+                for y in range(sy, sy + size * 2 + 1):
+                    for xx in range(x, x + size):
+                        if y in (sy, sy + size * 2) or xx in (x, x + size - 1):
+                            art.put(xx, y, beach.rgb(T["muted"]))
+        ly = (sy0 + 2 * (size * 2 + 4)) * PX + 40
+        for k, (col, big, small) in enumerate([
+                (T["mark"], f"called it: {CALLED}", f"chance: about {round(CHANCE1)}"),
+                (T["tan"], f"in its top three: {TOP3}", f"chance: about {round(CHANCE3)}")]):
+            y = ly + k * 66
+            o.append(f'<rect x="{TX - 40}" y="{y - 18}" width="18" height="20" fill="{col}"/>')
+            o.append(t(TX - 10, y, big, size=26, weight=700, fill=T["ink"]))
+            o.append(t(TX - 10, y + 30, small, size=22, family="mono", fill=T["muted"]))
+        finish("5-every-finale-phone.svg", o, art, h, T)
+
+
 def ep_x(e: int) -> float:
     return PLOT_X0 + CELL * (e - 0.5)
 
@@ -996,14 +1120,14 @@ def odds():
 
 def seasons():
     """One square per season: where the real winner ranked at the finale."""
-    h = 290
+    h = 312
     T = THEMES["night"]
     art, top = stage(h, T, sea_x=0.86)
     o = svg_open(h, "every finale")
     headline(o, TX, 70, [("it called ", ""), (f"{CALLED} of {N_SEASONS}", "a"),
                          (" winners.", "")], T)
-    o.append(kicker(TX + 4, 102, f"going into every finale · a random guess gets about "
-                                 f"{round(CHANCE1)}", fill=T["ink"]))
+    o.append(kicker(TX + 4, 102, f"about twice chance · a random guess at the finale gets "
+                                 f"about {round(CHANCE1)}", fill=T["ink"]))
     x0, size, gap = round(TX / PX), 3, 1
     sy = round((top + 40) / PX)
     tone = {1: beach.rgb(T["mark"]), 2: beach.rgb(T["tan"]), 3: beach.rgb(T["tan"])}
@@ -1022,22 +1146,17 @@ def seasons():
                      f'stroke="{T["hero"]}" stroke-width="2.6" stroke-linejoin="round"/>')
             o.append(t(cx, (sy - 6) * PX, WINNER.lower(), family="mono", fill=T["accent"],
                        anchor="middle"))
-    ly = (sy + size * 2 + 1) * PX + 36
-    items = [(T["mark"], f"called it, {CALLED}"), (T["tan"], f"2nd or 3rd, {TOP3 - CALLED}"),
-             (None, f"missed, {N_SEASONS - TOP3}")]
-    x = TX
-    for col, words in items:
-        if col is None:
-            o.append(f'<rect x="{x + 1}" y="{ly - 13}" width="12" height="14" fill="none" '
-                     f'stroke="{T["muted"]}" stroke-width="2"/>')
-        else:
-            o.append(f'<rect x="{x}" y="{ly - 14}" width="14" height="16" fill="{col}"/>')
-        o.append(t(x + 22, ly, words, fill=T["muted"]))
-        x += 22 + len(words) * 8.6 + 30
-    o.append(t(TX, ly + 30, f"a random guess: about {round(CHANCE1)} called, about "
-                            f"{round(CHANCE3)} in the top three", family="mono", fill=T["faint"]))
-    o.append(t(W - 40, ly + 30, f"one square per season, 1 to {N_SEASONS}", family="mono",
-               fill=T["faint"], anchor="end"))
+    # the two counts, each with what chance gets, big enough to read on a phone
+    ly = (sy + size * 2 + 1) * PX + 44
+    rows = [(T["mark"], f"called it: {CALLED}", f"chance: about {round(CHANCE1)}"),
+            (T["tan"], f"in its top three: {TOP3}", f"chance: about {round(CHANCE3)}")]
+    for k, (col, big, small) in enumerate(rows):
+        x = TX + k * 430
+        o.append(f'<rect x="{x}" y="{ly - 18}" width="18" height="20" fill="{col}"/>')
+        o.append(t(x + 30, ly, big, size=24, weight=700, fill=T["ink"]))
+        o.append(t(x + 30, ly + 28, small, size=21, family="mono", fill=T["muted"]))
+    o.append(t(W - 40, ly + 28, f"{N_SEASONS} seasons, one square each", size=18,
+               family="mono", fill=T["faint"], anchor="end"))
     finish("5-every-finale.svg", o, art, h, T)
 
 
@@ -1221,22 +1340,23 @@ def sharper():
 
 
 def learned():
-    """Three rules the model picked up, each a little scene on the beach at
-    night, lit by its own torch, with the site's wildlife about."""
+    """What the model actually relies on, from the ablation and its own
+    weights, each a little scene on the beach at night, lit by its own torch."""
     h = 420
     T = THEMES["night"]
     art, top = stage(h, T, sea_x=0.5)
     L = beach.light_at(T["p"])
-    o = svg_open(h, "what it learned")
-    headline(o, TX, 70, [("what it ", ""), ("learned", "a"), (".", "b")], T)
-    o.append(kicker(TX + 4, 102, "three patterns behind most of its calls", fill=T["ink"]))
+    o = svg_open(h, "what it leans on")
+    headline(o, TX, 70, [("what it ", ""), ("leans on", "a"), (".", "b")], T)
+    o.append(kicker(TX + 4, 102, "found by retraining without each piece, and by reading its weights",
+                    fill=T["ink"]))
     cols = [
-        ("loud early, out early", f"0 of {N_NEW}",
-         ("new-era seasons won by the", "confessional leader at episode 4")),
-        ("quiet, never silent", f"{SILENT_WINNERS} of {N_NEW}",
-         ("new-era winners who had an", "episode with zero confessionals")),
-        ("the story's about them", f"{CP_WIN:.0%} vs {CP_REST:.0%}",
-         ("episodes rated complex, winners", f"vs everyone else ({N_EDGIC} seasons)")),
+        ("the counts carry it", f"{int(CONF_ONLY['top3'])} of {N_SEASONS}",
+         ("winners in its top three from", "confessional counts alone")),
+        ("edgic adds nothing", f"{int(FULL['edgic_top3'])} vs {int(NO_EDGIC['edgic_top3'])}",
+         ("top-three hits with and without", f"edgic, on its {N_EDGIC_SEASONS} seasons")),
+        ("never go silent", f"#1 of {len(WEIGHTS)}",
+         ("its heaviest weight: a new-era", "episode with zero confessionals")),
     ]
     cw = (W - TX - 40) / 3
     base = round((top + 116) / PX)
@@ -1305,7 +1425,50 @@ def learned():
         fy = base - 10 - round(beach.hsh(n, 11) * 14)
         art.put(fx, fy, beach.rgb("#fff1a8"))
         art.put(fx + 1, fy, beach.rgb("#ffd86b"), 0.35)
-    finish("9-what-it-learned.svg", o, art, h, T)
+    finish("9-what-it-leans-on.svg", o, art, h, T)
+
+
+def calibrated():
+    """How often players at each rating actually won: what it said against
+    what happened, with a likely range, one row per band."""
+    h = 490
+    T = THEMES["day"]
+    art, top = stage(h, T, sea_x=0.86)
+    o = svg_open(h, "calibration")
+    headline(o, TX, 70, [("does ", ""), ("2x", "a"), (" mean 2x?", "")], T)
+    o.append(kicker(TX + 4, 102, "every rating it gave, grouped, against how often those players won",
+                    fill=T["ink"]))
+    x0, x1 = 290, W - 150
+    lo_, hi_ = math.log2(0.125), math.log2(5)
+    X = lambda v: x0 + (math.log2(min(5, max(0.125, v))) - lo_) / (hi_ - lo_) * (x1 - x0)
+    y0 = top + 40
+    for g in (0.25, 0.5, 1, 2, 4):
+        o.append(f'<line x1="{X(g):.1f}" x2="{X(g):.1f}" y1="{y0 - 18}" y2="{y0 + 6 * 40 - 8}" '
+                 f'stroke="{T["ink"] if g == 1 else T["muted"]}" stroke-width="{1.6 if g == 1 else 1}" '
+                 f'stroke-dasharray="{"" if g == 1 else "2 5"}" opacity="{0.6 if g == 1 else 0.45}"/>')
+        o.append(t(X(g), y0 - 26, "even" if g == 1 else f"{g}x", size=18, family="mono",
+                   fill=T["muted"], anchor="middle"))
+    for k, r in CALIB.iterrows():
+        y = y0 + k * 40 + 12
+        small = r["cases"] < 100
+        o.append(t(TX, y + 6, f"rated {r['band']}", size=19, fill=T["ink"]))
+        o.append(f'<rect x="{X(r["lo"]):.1f}" y="{y - 6}" width="{X(r["hi"]) - X(r["lo"]):.1f}" height="12" '
+                 f'rx="6" fill="{T["accent"]}" opacity="{0.1 if small else 0.18}"/>')
+        o.append(f'<line x1="{X(r["said"]):.1f}" x2="{X(r["actual"]):.1f}" y1="{y}" y2="{y}" '
+                 f'stroke="{T["ink"]}" stroke-width="2"/>')
+        o.append(f'<circle cx="{X(r["said"]):.1f}" cy="{y}" r="8" fill="{T["paper"]}" '
+                 f'stroke="{T["ink"]}" stroke-width="2.4"/>')
+        o.append(f'<circle cx="{X(r["actual"]):.1f}" cy="{y}" r="8" fill="{T["accent"]}" '
+                 f'opacity="{0.45 if small else 1}"/>')
+        o.append(t(W - 40, y + 6, f"{r['said']:.1f}x → {r['actual']:.1f}x{' ?' if small else ''}",
+                   size=19, family="mono", fill=T["ink"], anchor="end"))
+    ly = y0 + 6 * 40 + 22
+    o.append(f'<circle cx="{TX + 8}" cy="{ly - 6}" r="7" fill="{T["paper"]}" stroke="{T["ink"]}" stroke-width="2"/>')
+    o.append(t(TX + 24, ly, "what it said", size=18, fill=T["muted"]))
+    o.append(f'<circle cx="{TX + 168}" cy="{ly - 6}" r="7" fill="{T["accent"]}"/>')
+    o.append(t(TX + 184, ly, "what happened", size=18, fill=T["muted"]))
+    o.append(t(TX + 340, ly, "bar: likely range · ? too few cases", size=18, fill=T["muted"]))
+    finish("10-calibration.svg", o, art, h, T)
 
 
 # ---------------------------------------------------------------- the live season
@@ -1337,7 +1500,7 @@ def live_card(d: dict) -> tuple[str, str]:
     """This week's top three for the airing season, with how far each moved
     since last week. No list of who's out, so it spoils nothing past the
     names still in the game."""
-    h = 330
+    h = 352
     T = THEMES["day"]
     art, top = stage(h, T, sea_x=0.82)
     season, ep = d["season"], d["episodes"][-1]
@@ -1382,6 +1545,13 @@ def live_card(d: dict) -> tuple[str, str]:
         art.put(round(ex / PX), yy, beach.rgb(T["ink"]))
     o.append(t(ex, y0 + 3 * 34 + 20, f"even split, {even:.0%}", family="mono", fill=T["faint"],
                anchor="middle"))
+    # in the first quarter of a season the model is barely better than a hat,
+    # and the card has to say so where people read the arrows
+    q_hit, q_luck = QUARTERS[0]
+    if ep / max(len(d["episodes"]), d.get("expected", 13) or 13) <= 0.3 or ep <= 3:
+        o.append(t(TX, h - 22, f"early weeks are close to chance: this far in, the winner is in its "
+                               f"top three {q_hit:.0%} of the time, against {q_luck:.0%} by luck",
+                   size=18, fill=T["muted"]))
     finish("live.svg", o, art, h, T)
     names = ", ".join(f"{n} {p:.0%}" for n, p in top3)
     alt = f"The model's top three for season {season} after episode {ep}: {names}"
@@ -1401,11 +1571,11 @@ def live_block() -> str:
         "",
         textwrap.fill(f"**[See the full board for season {d['season']}]({link})**. The site also "
                       "replays every finished season episode by episode, shows why the model "
-                      "rates each player the way it does, and compares eras.", 79,
+                      "rates each player the way it does, and puts every castaway's seasons on "
+                      "one chart.", 79,
                       break_on_hyphens=False),
         "",
     ])
-
 
 # ---------------------------------------------------------------- the README
 
@@ -1415,14 +1585,19 @@ def readme_block(pictures) -> str:
         return textwrap.fill(s, 79, break_on_hyphens=False)
 
     out = ["<!-- generated by scripts/story.py from the backtest. edit the script, not "
-           "this block. -->", "## one season, start to finish", ""]
+           "this block. -->", "## One season, start to finish", ""]
     for kind, name, alt, text in pictures:
         if kind == "section":
             out += [f"## {name}", "", para(text), ""]
             continue
         if text:
             out += [para(text), ""]
-        out += [f"![{alt}](docs/story/{name})", ""]
+        narrow = name.replace(".svg", "-phone.svg")
+        if (OUT / narrow).exists():
+            out += ["<picture>", f'  <source media="(max-width: 700px)" srcset="docs/story/{narrow}">',
+                    f'  <img alt="{html.escape(alt)}" src="docs/story/{name}">', "</picture>", ""]
+        else:
+            out += [f"![{alt}](docs/story/{name})", ""]
     out.append(para("Every season's full chart, every player's line, is in [the backtest "
                     "poster](docs/infographic.png)."))
     return "\n".join(out).rstrip() + "\n"
@@ -1442,7 +1617,8 @@ def main() -> None:
     print(f"season {SEASON}: {WINNER} won; ep-4 favorite {FAVORITE}")
     for old in OUT.glob("*.svg"):
         old.unlink()
-    for draw in (banner, meet, edit, talk, odds, seasons, inputs, blind, sharper, learned):
+    for draw in (banner, meet, edit, talk, odds, seasons, inputs, blind, sharper, learned, calibrated,
+                 edit_phone, seasons_phone):
         draw()
     q = list(QUIET)
     lo, hi = int(CONF[q].min()), int(CONF[q].max())
@@ -1450,21 +1626,25 @@ def main() -> None:
     pictures = [
         ("pic", "1-this-is-rachel.svg",
          f"Season {SEASON}'s cast on the beach at midday, {WINNER} circled",
-         f"{WINNER} won Survivor {SEASON}. The model never trained on her season, so "
-         "everything below is what it actually thought at the time, one episode at a time."),
+         f"{WINNER} won Survivor {SEASON}. This is a replay, not a record: a model that never "
+         "trained on her season, fed one episode at a time and only what had aired by then. "
+         "The model itself was built in 2026 with all 50 seasons in view, so treat this as a "
+         "backtest."),
         ("pic", "2-how-the-show-edited-her.svg",
          f"{WINNER}'s edgic rating for every episode next to {FAVORITE}'s",
          "Edgic is the fans' weekly rating of every player's edit: under the radar, middle of "
          "the road, complex (the story is about you) or over the top, plus whether it reads "
-         f"good or bad. {WINNER} went under the radar for episodes {q[0]} to {q[-1]} and "
+         "good or bad. It's human-coded, so it's a judgment call, not a count. "
+         f"{WINNER} went under the radar for episodes {q[0]} to {q[-1]} and "
          f"was mostly complex and positive after that. {FAVORITE} was over the top and "
          f"negative every single week. He was the model's #1 after episodes {FAV_TOP[0]} "
          f"and {FAV_TOP[1]}, and he went out in {out}."),
         ("pic", "3-quiet-never-silent.svg",
          f"{WINNER}'s confessionals per episode against the cast average",
          "Confessionals are the talking-head interviews. In the quiet stretch she got "
-         f"{lo} to {hi} an episode, under the cast average, but never zero. That matters: "
-         f"only {SILENT_WINNERS} of {N_NEW} new-era winners has had an episode with none."),
+         f"{lo} to {hi} an episode, under the cast average, but never zero. In the new era "
+         f"only {SILENT_WINNERS} of {N_NEW} winners has had an episode with none, against "
+         f"{SILENT_OTHERS} of {N_OTHERS} of the other players who lasted as long."),
         ("pic", "4-the-model-caught-on.svg",
          f"{WINNER}'s rank after each episode, from {ordinal(RANKS[1])} to "
          f"{ordinal(RANKS[2])} and back up to {ordinal(RANKS[LAST_EP])}",
@@ -1474,38 +1654,43 @@ def main() -> None:
         ("pic", "5-every-finale.svg",
          f"Where the real winner ranked at all {N_SEASONS} finales: {CALLED} called, "
          f"against about {round(CHANCE1)} for a random guess",
-         f"{WINNER} is one season out of {N_SEASONS}. Going into the finale, with "
-         f"{FIELD_MIN} to {FIELD_MAX} players left, the model's #1 pick was the real winner "
-         f"{CALLED} times. Picking a name at random gets about {round(CHANCE1)}. The winner "
-         f"was in its top three {TOP3} times, against about {round(CHANCE3)} by chance."),
-        ("section", "how it works", "", "The short version, in four pictures."),
+         f"{WINNER} is one season of {N_SEASONS}. Here's where the real winner ranked in the "
+         f"model's last snapshot of every season, with {FIELD_MIN} to {FIELD_MAX} players left."),
+        ("section", "How it works", "", "The short version, in four pictures."),
         ("pic", "6-what-goes-in.svg",
          "Confessionals, edgic and game stats feed a logistic regression, which outputs "
          "odds that add to 100%",
          f"After every episode, each player still in the game becomes {N_FEATURES} numbers: "
-         "how much they talk and when, how the fans rated their edit that week, and how they "
-         "are playing. A logistic regression scores everyone, and the scores get rescaled "
+         "how much they talk and when (counted), how fans graded their edit that week "
+         f"(human-coded edgic, only for {N_EDGIC_SEASONS} of the {N_SEASONS} seasons), and how "
+         "they're playing. A logistic regression scores everyone, and the scores get rescaled "
          "within the season so they add to 100%, because there's exactly one winner. "
          "New-era seasons (41 on) also blend in a model trained on that era alone."),
         ("pic", "7-it-never-sees-the-answer.svg",
          "Leave-one-season-out training, and features built only from episodes that have "
          "aired",
-         "Every number in this README is out of sample. Each season is predicted by a model "
-         "that never saw it, and every feature only uses episodes that had aired by then. "
-         "Edgic ratings written after a finale don't count either, because most of the "
-         "charts online were made by people who already knew the winner."),
+         "Every prediction here is out of sample: each season is predicted by a model that "
+         "never trained on it, and every feature only uses episodes that had aired by then. "
+         "Edgic ratings written after a finale don't count either, because most of the charts "
+         "online were made by people who already knew the winner. One honest caveat: the "
+         "design (which features to keep, where to blend, which seasons to leave out of "
+         "training) was chosen while looking at results across all 50 seasons, so these "
+         "numbers are somewhat optimistic. Season 51 is the clean test, further down."),
         ("pic", "8-sharper-every-week.svg",
          "How often the winner is in the model's top three, by quarter of the season, "
          "against a random pick",
          "It isn't psychic. In the first quarter of a season it's about as good as picking "
          "three names out of a hat. It gets sharper as the edit fills in, and the dotted "
          "line on each bar is what a random pick of three would get at that point."),
-        ("pic", "9-what-it-learned.svg",
-         "Three patterns: early confessional leaders don't win, winners are never silent, "
-         "winners get complex edits",
-         "Most of its calls come down to three patterns. The editors crown an early "
-         "frontrunner just to take them down. Winners are rarely the loudest, but they are "
-         "almost never silent. And by the end, the story is about them."),
+        ("pic", "9-what-it-leans-on.svg",
+         "What it leans on: confessional counts carry the result, edgic adds nothing measurable, "
+         "its heaviest weight is a new-era silent episode",
+         "What actually carries it, found by retraining with pieces taken away (the full "
+         f"table is below). Confessional counts alone get {int(CONF_ONLY['top3'])} winners into "
+         f"its top three. Adding the human-coded edgic changes nothing on the "
+         f"{N_EDGIC_SEASONS} seasons that have it. And its single heaviest weight is a new-era "
+         "episode with zero confessionals: winners are rarely the loudest, but they're almost "
+         "never silent."),
     ]
     write_readme(readme_block(pictures))
     write_readme(live_block(), LIVE_START, LIVE_END)
