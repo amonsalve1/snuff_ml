@@ -1,7 +1,7 @@
 // small multiples: one season, a couple of named lines, on the same log
 // odds-vs-even axis the season view uses, so shapes compare across pages.
 // the grey band is the middle 80% of whoever was still in, for context.
-import { heat, alive } from "./common.js?v=31";
+import { heat, alive } from "./common.js?v=32";
 
 const NS = "http://www.w3.org/2000/svg";
 const mk = (t, a, p) => { const n = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) n.setAttribute(k, v); if (p) p.appendChild(n); return n; };

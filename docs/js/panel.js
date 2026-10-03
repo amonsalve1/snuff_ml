@@ -1,4 +1,4 @@
-import { countTo, reduce } from "./motion.js?v=31";
+import { countTo, reduce } from "./motion.js?v=32";
 
 // the lower half of the season view: a stat strip, the model's track record
 // at this level, and a waterfall from a typical player's odds to this one's.

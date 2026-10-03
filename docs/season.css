@@ -28,7 +28,9 @@ h1 span{color:var(--h-accent);font-style:normal;font-weight:600}
 .labels.day{--l-ink:#2a2116;--l-muted:#4f412c;--l-out:#6b5a40}
 .labels button{all:unset;position:absolute;top:8px;transform:translateX(-50%);display:grid;justify-items:center;line-height:1.25;cursor:pointer;padding:0 4px;border-radius:3px}.labels button:focus-visible{outline:2px solid var(--l-ink)}.labels .nm{position:relative}
 .labels .nm{font-size:12.5px;color:var(--l-ink);white-space:nowrap}.labels .v{font:500 11.5px "DM Mono";color:var(--l-muted)}
-.labels .tag{font:500 10px "DM Mono";letter-spacing:.08em;text-transform:uppercase;color:var(--ember);margin-top:1px}
+/* a solid tag, so it reads on noon sand, golden hour and night alike */
+.labels .tag{font:500 9.5px "DM Mono";letter-spacing:.08em;text-transform:uppercase;color:#fff6ec;background:#8a2f06;padding:1px 5px;border-radius:2px;margin-top:3px}
+.labels .tag:empty{display:none}
 .labels .sel .nm{color:var(--h-accent2,#ff9a4a);font-weight:700}.labels .sel .v{color:var(--h-accent2,#ff9a4a)}.labels.day .sel .nm,.labels.day .sel .v{color:#a33a08}
 .labels .out .nm,.labels .out .v{color:var(--l-out)}.labels .out .nm{text-decoration:line-through}
 .labels .sel .nm::before{content:"";position:absolute;top:-9px;left:50%;width:7px;height:7px;background:currentColor;transform:translateX(-50%) rotate(45deg)}
@@ -105,9 +107,10 @@ h2{font:600 26px Fraunces;letter-spacing:-.5px;margin:0 0 4px}.sub{color:var(--m
 .pop-cells a.airing{color:var(--flame);outline:2px dashed var(--flame);outline-offset:-2px}.k.airing{outline:1.5px dashed var(--flame);outline-offset:-1.5px}
 .pop-cells a.cur{box-shadow:0 0 0 2px #fbf7ee,0 0 0 4px var(--ink)}
 .pop-key{display:flex;gap:14px;margin-top:10px;font-size:12px;color:var(--muted)}.k{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
-.labels::after{content:"";position:absolute;left:0;right:0;bottom:-34px;height:34px;background:linear-gradient(var(--sand-dark,#1f1a2b),var(--paper));pointer-events:none}
+/* the beach ends on a hard edge, the way pixel art would: a darker band of sand, then paper */
+.labels{border-bottom:4px solid var(--sand-dark,#1f1a2b)}
 .labels .out .v{display:none}.labels .out .nm{opacity:.75}
-.tl{display:block;position:sticky;top:0;z-index:15;max-width:none;margin:34px 0 0;padding:10px 0;background:rgba(245,239,227,.93);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+.tl{display:block;position:sticky;top:0;z-index:15;max-width:none;margin:0;padding:10px 0;background:rgba(245,239,227,.93);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
 .tl-in{max-width:1080px;margin:0 auto;padding:0 28px;display:flex;align-items:center;gap:8px}
 .tl-in>button{font:500 13px "DM Mono";background:transparent;color:var(--flame);border:1px solid var(--flame);border-radius:3px;padding:7px 11px;cursor:pointer;transition:background .15s,color .15s}
 .tl-in>button:hover,.tl-in>button:focus-visible{background:var(--flame);color:#fff;outline:none}

@@ -1,6 +1,6 @@
 // the header shared by the non-season pages: the shore at a fixed time of day,
 // nav over it, copy in the sky with the ink chosen from the sky it sits on
-import { createStage } from "./stage.js?v=31";
+import { createStage } from "./stage.js?v=32";
 
 export function band(el, p) {
   const stage = createStage(el, {
