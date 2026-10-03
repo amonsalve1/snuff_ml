@@ -26,6 +26,7 @@
 .big small{font-size:26px;letter-spacing:-.5px;color:var(--muted)}
 .feat h2{font-size:28px;margin:10px 0 10px;max-width:none}
 .feat p{font-size:16.5px;line-height:1.6;color:var(--muted);margin:0 0 10px}.feat p b{color:var(--ink)}
+.feat p.caveat{font-size:14.5px;margin-top:16px;padding:10px 0 0 14px;border-left:3px solid var(--rule)}
 .viz{background:#fbf7ee;border:1px solid var(--rule);border-radius:4px;padding:18px 20px}
 .cap{font:500 11.5px "DM Mono";letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
 /* record */
@@ -125,6 +126,9 @@ const recordRows = ["old", "middle", "new"].map((e) => {
 
 // death flag: the flag holder's run above, the winner's below
 const flags = ins.early_flag_curse, flagWins = flags.filter((r) => r.won).length;
+// what random picking would do: a leader wins 1 time in however many are still in after ep 4
+const flagOdds = flags.map((r) => 1 / bySeason.get(r.season).players.filter((q) => q.probs[3] != null).length);
+const flagExpect = flagOdds.reduce((a, b) => a + b, 0), flagZero = flagOdds.reduce((a, b) => a * (1 - b), 1);
 const maxEps = Math.max(...flags.map((r) => bySeason.get(r.season).episodes.length));
 // leave the right of each row for the end labels; more of it on a phone
 const SPAN = matchMedia("(max-width: 640px)").matches ? 58 : 78;
@@ -201,7 +205,8 @@ document.getElementById("main").innerHTML = `
   <div class="big">0 <small>for ${flags.length}</small></div>
   <h2>Lead the confessionals early in the new era and you don't win.</h2>
   <p>Whoever has the biggest share of confessionals through episode 4 has <b>never won</b> a new-era season. Some go out in episode 4, some make it to the very end. None of them win.</p>
-  <p>Each row is one season: the flag holder's run in black, the eventual winner's in orange.</p></div>
+  <p>Each row is one season: the flag holder's run in black, the eventual winner's in orange.</p>
+  <p class="caveat"><b>Don't read too much into it.</b> With ${Math.round(1 / (flagExpect / flags.length))} or so players left, any one of them wins rarely, so chance alone expects about ${flagExpect.toFixed(1)} of these ${flags.length} to win, and ${flagWins} for ${flags.length} happens ${pc(flagZero)} of the time. It's a pattern worth watching, not proof.</p></div>
   <div class="viz"><div class="cap">Flag holder vs eventual winner, by episode</div>${flagAxis}${flagRows}
   <div class="fkey"><span><i style="background:var(--ink)"></i>flag holder</span><span><i style="background:#e0a17f"></i>winner</span><span><i style="border-left:1.5px dashed var(--flame);width:0;height:12px;border-radius:0"></i>flag planted, ep 4</span></div></div>
 </section>
