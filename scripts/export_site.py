@@ -80,19 +80,26 @@ def logit_contributions(model: WinnerModel, rows: pd.DataFrame) -> pd.DataFrame:
     if hasattr(x, "toarray"):
         x = x.toarray()
     names = [strip_prefix(n) for n in pre.get_feature_names_out()]
-    return pd.DataFrame(x * clf.coef_[0], columns=names, index=rows.index)
+    # the platt calibrator rescales the logit before it becomes a probability.
+    # without its slope the bars overstate the odds they explain, about 2x for
+    # the pooled model and 4x for the new era one
+    slope = float(model.calibrator.coef_[0][0]) if model.calibrator is not None else 1.0
+    return pd.DataFrame(x * clf.coef_[0] * slope, columns=names, index=rows.index)
 
 
 def blend_contributions(blend: EraBlendModel, rows: pd.DataFrame) -> pd.DataFrame:
-    # sqrt(p_pooled * p_era) is the mean of the two logits, so average the
-    # contribution vectors where the era model applies
+    # sqrt(p_pooled * p_era) averages the two log probabilities, so where the
+    # era model applies each model counts half, a feature only one of them has
+    # included
     contrib = logit_contributions(blend.pooled, rows)
     for era, m in blend.era_models.items():
         mask = rows["era"] == era
         if mask.any():
             era_c = logit_contributions(m, rows[mask])
-            both = contrib.columns.intersection(era_c.columns)
-            contrib.loc[mask, both] = (contrib.loc[mask, both] + era_c[both]) / 2
+            cols = contrib.columns.union(era_c.columns)
+            contrib = contrib.reindex(columns=cols, fill_value=0.0)
+            era_c = era_c.reindex(columns=cols, fill_value=0.0)
+            contrib.loc[mask, cols] = (contrib.loc[mask, cols] + era_c) / 2
     return contrib
 
 
