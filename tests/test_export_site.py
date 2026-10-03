@@ -208,3 +208,24 @@ def test_relative_contributions_explain_the_odds():
     raw_rel = export_site.relative_to_field(export_site.logit_contributions(unscaled, rows), rows)
     raw_gap = (raw_rel.sum(axis=1) - export_site.log_odds_vs_field(rows)).abs()
     assert raw_gap.median() > 3 * gap.median()
+
+
+def test_build_season_ships_ftc():
+    preds = _toy_preds()
+    preds["_row"] = preds.index
+    out = export_site.build_season(preds, _toy_contrib(preds), 1)
+    ftc = {pl["name"]: pl["ftc"] for pl in out["players"]}
+    assert ftc == {"Alice": True, "Bob": True, "Cara": False}
+
+
+def test_live_season_marks_latest_boot(monkeypatch):
+    # cara goes home in the newest aired episode; without the vote history she
+    # would look like she is still in
+    preds = pd.concat([_live_preds(), _live_preds().assign(episode=2, win_prob=[0.5, 0.3, 0.2])], ignore_index=True)
+    preds["_vs_field"] = export_site.log_odds_vs_field(preds)
+    preds["_row"] = preds.index
+    contrib = pd.DataFrame({"conf_share_cum": 0.0}, index=preds.index)
+    monkeypatch.setattr(export_site, "live_notes", lambda season, eps: {"just_out": "Cara"})
+    out = export_site.build_season(preds, contrib, 51)
+    boots = {pl["name"]: pl["boot"] for pl in out["players"]}
+    assert boots == {"Alice": None, "Bob": None, "Cara": 2}

@@ -347,6 +347,10 @@ def build_index(preds: pd.DataFrame, names: dict[int, str]) -> dict:
 def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dict:
     g = preds[preds["season"] == season]
     eps = sorted(g["episode"].unique())
+    live = season_is_live(g)
+    # in a live season the newest episode is also the last one in the data, so
+    # whoever went home in it would read as still in. the vote history knows.
+    just_out = live_notes(season, [int(e) for e in eps]).get("just_out") if live else None
     players = []
     for cid, p in g.groupby("castaway_id"):
         p = p.sort_values("episode")
@@ -370,12 +374,16 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
                 whys.append(None)
                 rest.append(None)
                 total.append(None)
+        name = str(p["castaway"].iloc[0])
         players.append(
             {
                 "id": str(cid),
-                "name": str(p["castaway"].iloc[0]),
+                "name": name,
                 "winner": bool(p["is_winner"].any()),
-                "boot": None if boot == max(eps) else boot,
+                # several people can go home inside a finale episode, so being
+                # alive at its start doesn't mean reaching final tribal
+                "ftc": bool(p["made_ftc"].any()) if "made_ftc" in p else None,
+                "boot": boot if name == just_out else None if boot == max(eps) else boot,
                 "probs": probs,
                 "why": whys,
                 "why_rest": rest,
