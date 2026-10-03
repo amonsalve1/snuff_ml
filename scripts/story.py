@@ -35,6 +35,7 @@ from __future__ import annotations
 import base64
 import functools
 import html
+import json
 import io
 import math
 import re
@@ -58,6 +59,8 @@ OUT = DOCS / "story"
 JS = DOCS / "js"
 README = config.PROJECT_ROOT / "README.md"
 START, END = "<!-- story:start -->", "<!-- story:end -->"
+LIVE_START, LIVE_END = "<!-- live:start -->", "<!-- live:end -->"
+SITE = "https://amonsalve1.github.io/snuff_ml/"
 
 W = 1000  # every picture, so they stack at one scale
 PX = beach.S  # one art pixel, same as the site
@@ -590,18 +593,26 @@ assert FINAL["castaway"].iloc[0] == WINNER, "the model's last pick wasn't the wi
 assert RANKS[2] == max(RANKS.values()), "her low point wasn't episode 2"
 
 
-def finale_ranks() -> list[tuple[int, int | None]]:
+def finale_ranks() -> list[tuple[int, int | None, int]]:
+    """Season, where the real winner ranked, and how many were left, at each
+    season's last snapshot: going into the finale, 3 to 6 players."""
     out = []
     for s, g in PREDS.groupby("season"):
         last = at(int(g["episode"].max()), g)
         hit = last.index[last["is_winner"]]
-        out.append((int(s), int(hit[0]) + 1 if len(hit) else None))
+        out.append((int(s), int(hit[0]) + 1 if len(hit) else None, len(last)))
     return out
 
 
 FINALES = finale_ranks()
-CALLED = sum(r == 1 for _, r in FINALES)
-TOP3 = sum(bool(r) and r <= 3 for _, r in FINALES)
+CALLED = sum(r == 1 for _, r, _ in FINALES)
+TOP3 = sum(bool(r) and r <= 3 for _, r, _ in FINALES)
+# what a random guess gets from the same fields: one name, or three
+CHANCE1 = sum(1 / n for *_, n in FINALES)
+CHANCE3 = sum(min(1, 3 / n) for *_, n in FINALES)
+FIELD_MIN = min(n for *_, n in FINALES)
+FIELD_MAX = max(n for *_, n in FINALES)
+assert 1.8 < CALLED / CHANCE1 < 2.5, "the copy says about twice a random guess"
 
 # the new era, for the two rules the model learned there
 NEW = PREDS[PREDS["era"] == "new"]
@@ -985,17 +996,18 @@ def odds():
 
 def seasons():
     """One square per season: where the real winner ranked at the finale."""
-    h = 260
+    h = 290
     T = THEMES["night"]
     art, top = stage(h, T, sea_x=0.86)
     o = svg_open(h, "every finale")
-    headline(o, TX, 70, [(f"{TOP3} of {N_SEASONS}", "a"), (" winners in its top three.", "")], T)
-    o.append(kicker(TX + 4, 102, "where the model ranked the real winner, every finale",
-                    fill=T["ink"]))
+    headline(o, TX, 70, [("it called ", ""), (f"{CALLED} of {N_SEASONS}", "a"),
+                         (" winners.", "")], T)
+    o.append(kicker(TX + 4, 102, f"going into every finale · a random guess gets about "
+                                 f"{round(CHANCE1)}", fill=T["ink"]))
     x0, size, gap = round(TX / PX), 3, 1
     sy = round((top + 40) / PX)
     tone = {1: beach.rgb(T["mark"]), 2: beach.rgb(T["tan"]), 3: beach.rgb(T["tan"])}
-    for i, (s, r) in enumerate(FINALES):
+    for i, (s, r, _) in enumerate(FINALES):
         x = x0 + i * (size + gap)
         if r and r <= 3:
             block(art, x, sy, size, size * 2 + 1, tone[r], shade=0.2)
@@ -1022,7 +1034,9 @@ def seasons():
             o.append(f'<rect x="{x}" y="{ly - 14}" width="14" height="16" fill="{col}"/>')
         o.append(t(x + 22, ly, words, fill=T["muted"]))
         x += 22 + len(words) * 8.6 + 30
-    o.append(t(W - 40, ly, f"one square per season, 1 to {N_SEASONS}", family="mono",
+    o.append(t(TX, ly + 30, f"a random guess: about {round(CHANCE1)} called, about "
+                            f"{round(CHANCE3)} in the top three", family="mono", fill=T["faint"]))
+    o.append(t(W - 40, ly + 30, f"one square per season, 1 to {N_SEASONS}", family="mono",
                fill=T["faint"], anchor="end"))
     finish("5-every-finale.svg", o, art, h, T)
 
@@ -1167,7 +1181,7 @@ def sharper():
     h = 420
     T = THEMES["golden"]
     art, top = stage(h, T, sea_x=0.5)
-    final = (TOP3 / N_SEASONS, None)
+    final = (TOP3 / N_SEASONS, CHANCE3 / N_SEASONS)
     bars = [*QUARTERS, final]
     labels = ["first quarter", "second", "third", "last quarter", "finale"]
     o = svg_open(h, "sharper every week")
@@ -1198,10 +1212,11 @@ def sharper():
              'stroke-dasharray="4 4"/>')
     for k, line in enumerate(("a random pick of three", "", "early on it's barely",
                               "better than a guess.", "by the finale it's",
-                              "rarely wrong.")):
+                              "well ahead of one.")):
         if line:
             o.append(t(TX, top + 96 + k * 21, line, fill=T["muted"]))
     assert QUARTERS[0][0] - QUARTERS[0][1] < 0.1, "the early-season line says barely better"
+    assert final[0] - final[1] > 0.2, "the finale line says well ahead of a guess"
     finish("8-sharper-every-week.svg", o, art, h, T)
 
 
@@ -1293,6 +1308,105 @@ def learned():
     finish("9-what-it-learned.svg", o, art, h, T)
 
 
+# ---------------------------------------------------------------- the live season
+
+
+def live_season() -> dict | None:
+    """The airing season's site export, or None between seasons."""
+    for path in sorted((DOCS / "data" / "seasons").glob("s*.json"), reverse=True):
+        d = json.loads(path.read_text())
+        if d.get("live"):
+            return d
+    return None
+
+
+def standing(d: dict, i: int) -> list[tuple[str, float]]:
+    """Who's still in after the i-th aired episode, best odds first. A player
+    voted out that episode still carries a number for it in the export, so
+    they're dropped here: the card must never list someone already gone."""
+    ep = d["episodes"][i]
+    still = [(p["name"], p["probs"][i]) for p in d["players"]
+             if p["probs"][i] is not None and (p["boot"] is None or p["boot"] > ep)]
+    return sorted(still, key=lambda r: -r[1])
+
+
+ARROW = ["...x...", "..xxx..", ".xxxxx.", "xxxxxxx", "..xxx..", "..xxx.."]
+
+
+def live_card(d: dict) -> tuple[str, str]:
+    """This week's top three for the airing season, with how far each moved
+    since last week. No list of who's out, so it spoils nothing past the
+    names still in the game."""
+    h = 330
+    T = THEMES["day"]
+    art, top = stage(h, T, sea_x=0.82)
+    season, ep = d["season"], d["episodes"][-1]
+    now = standing(d, -1)
+    before = {name: k for k, (name, _) in enumerate(standing(d, -2))} if len(d["episodes"]) > 1 else {}
+    top3 = now[:3]
+    even = 1 / len(now)
+    o = svg_open(h, f"season {season}, live")
+    headline(o, TX, 70, [("who wins ", ""), (f"season {season}", "a"), ("?", "b")], T)
+    o.append(kicker(TX + 4, 102, f"the model's top three after episode {ep} (updated weekly)",
+                    fill=T["ink"]))
+    bx, span = 300, 420
+    scale = span / max(top3[0][1], 2 * even)
+    ex = bx + even * scale
+    y0 = top + 30
+    for k, (name, prob) in enumerate(top3):
+        y = y0 + k * 34
+        o.append(t(TX, y + 16, k + 1, family="mono", fill=T["faint"]))
+        o.append(title(TX + 34, y + 18, name.lower(), T, size=22,
+                       fill=T["accent"] if k == 0 else None))
+        bw = max(1, round(prob * scale / PX))
+        block(art, round(bx / PX), round(y / PX), bw, 5,
+              beach.rgb(T["hero"] if k == 0 else T["tan"]), shade=0.15)
+        o.append(t(bx + bw * PX + 10, y + 16, f"{prob:.0%}", family="mono",
+                   fill=T["accent"] if k == 0 else T["muted"]))
+        ax = round((W - 130) / PX)
+        if name in before and before[name] != k:
+            up = before[name] > k
+            col = beach.rgb("#2f9e55" if up else "#d1453b")
+            for r, row in enumerate(ARROW if up else ARROW[::-1]):
+                for c, ch in enumerate(row):
+                    if ch == "x":
+                        art.put(ax + c, round(y / PX) - 1 + r, col)
+            moved = abs(before[name] - k)
+            o.append(t(ax * PX + 38, y + 16, f"{'up' if up else 'down'} {moved}", family="mono",
+                       fill="#2f9e55" if up else "#d1453b"))
+        elif name in before:
+            o.append(t(ax * PX + 2, y + 16, "same", family="mono", fill=T["faint"]))
+        else:
+            o.append(t(ax * PX + 2, y + 16, "new", family="mono", fill=T["faint"]))
+    for yy in range(round((y0 - 10) / PX), round((y0 + 3 * 34) / PX), 2):
+        art.put(round(ex / PX), yy, beach.rgb(T["ink"]))
+    o.append(t(ex, y0 + 3 * 34 + 20, f"even split, {even:.0%}", family="mono", fill=T["faint"],
+               anchor="middle"))
+    finish("live.svg", o, art, h, T)
+    names = ", ".join(f"{n} {p:.0%}" for n, p in top3)
+    alt = f"The model's top three for season {season} after episode {ep}: {names}"
+    return alt, f"{SITE}#s{season}/ep{ep}"
+
+
+def live_block() -> str:
+    d = live_season()
+    if d is None:
+        (OUT / "live.svg").unlink(missing_ok=True)
+        return ""
+    alt, link = live_card(d)
+    return "\n".join([
+        "<!-- generated by scripts/story.py from docs/data/seasons. rerun it after each "
+        "site export. -->",
+        f"[![{alt}](docs/story/live.svg)]({link})",
+        "",
+        textwrap.fill(f"**[See the full board for season {d['season']}]({link})**. The site also "
+                      "replays every finished season episode by episode, shows why the model "
+                      "rates each player the way it does, and compares eras.", 79,
+                      break_on_hyphens=False),
+        "",
+    ])
+
+
 # ---------------------------------------------------------------- the README
 
 
@@ -1314,14 +1428,14 @@ def readme_block(pictures) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
-def write_readme(block: str) -> None:
+def write_readme(block: str, start: str = START, end: str = END) -> None:
     text = README.read_text()
-    if START not in text or END not in text:
-        raise SystemExit(f"README.md needs {START} and {END} around the story section")
-    head, rest = text.split(START, 1)
-    _, tail = rest.split(END, 1)
-    README.write_text(f"{head}{START}\n{block}{END}{tail}")
-    print("wrote the story block in README.md")
+    if start not in text or end not in text:
+        raise SystemExit(f"README.md needs {start} and {end} around the generated section")
+    head, rest = text.split(start, 1)
+    _, tail = rest.split(end, 1)
+    README.write_text(f"{head}{start}\n{block}{end}{tail}")
+    print(f"wrote {start} in README.md")
 
 
 def main() -> None:
@@ -1359,9 +1473,11 @@ def main() -> None:
          f"until its last snapshot had her first at {FINAL_P:.0%}."),
         ("pic", "5-every-finale.svg",
          f"Where the real winner ranked at all {N_SEASONS} finales: {CALLED} called, "
-         f"{TOP3} in the top three",
-         f"{WINNER} is one season out of {N_SEASONS}. At the finale the real winner was in "
-         f"the model's top three {TOP3} times, and its #1 pick {CALLED} times."),
+         f"against about {round(CHANCE1)} for a random guess",
+         f"{WINNER} is one season out of {N_SEASONS}. Going into the finale, with "
+         f"{FIELD_MIN} to {FIELD_MAX} players left, the model's #1 pick was the real winner "
+         f"{CALLED} times. Picking a name at random gets about {round(CHANCE1)}. The winner "
+         f"was in its top three {TOP3} times, against about {round(CHANCE3)} by chance."),
         ("section", "how it works", "", "The short version, in four pictures."),
         ("pic", "6-what-goes-in.svg",
          "Confessionals, edgic and game stats feed a logistic regression, which outputs "
@@ -1382,7 +1498,8 @@ def main() -> None:
          "How often the winner is in the model's top three, by quarter of the season, "
          "against a random pick",
          "It isn't psychic. In the first quarter of a season it's about as good as picking "
-         "three names out of a hat. It gets sharper as the edit fills in."),
+         "three names out of a hat. It gets sharper as the edit fills in, and the dotted "
+         "line on each bar is what a random pick of three would get at that point."),
         ("pic", "9-what-it-learned.svg",
          "Three patterns: early confessional leaders don't win, winners are never silent, "
          "winners get complex edits",
@@ -1391,6 +1508,7 @@ def main() -> None:
          "almost never silent. And by the end, the story is about them."),
     ]
     write_readme(readme_block(pictures))
+    write_readme(live_block(), LIVE_START, LIVE_END)
 
 
 if __name__ == "__main__":
