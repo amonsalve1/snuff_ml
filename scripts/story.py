@@ -644,9 +644,6 @@ QUARTERS = by_quarter()
 # ---------------------------------------------------------------- the banner
 
 
-CORAL = "#ef5a35"  # the wordmark, and the outer layer of the logo flame
-
-
 def text_width(s: str, key: tuple[str, int], size: float, track: float = 0) -> float:
     """Advance width of `s` in one of the embedded faces, in screen units."""
     font = TTFont(io.BytesIO(_static(key)))
@@ -798,9 +795,8 @@ def banner():
     o = svg_open(h, "snuffml")
     USED.setdefault(("headline", 600), set()).update("snuffml")
     tx = left
-    # a cream drop shadow, down and to the right, instead of an outline
-    for d, fill, op in ((4, "#fff4dc", 0.9), (0, CORAL, 1)):
-        o.append(f'<text x="{tx + d * 0.75:.1f}" y="{104 + d}" font-family="{STACK["headline"]}" '
+    for dy, fill, op in ((3, "#fff4dc", 0.5), (0, NAVY, 1)):
+        o.append(f'<text x="{tx:.1f}" y="{104 + dy}" font-family="{STACK["headline"]}" '
                  f'font-size="{size}" font-weight="600" font-style="italic" fill="{fill}" '
                  f'opacity="{op}" letter-spacing="{track}">snuffml</text>')
     o.append(t(W / 2, 158, "predicting who wins survivor from how the show is edited", size=20,
