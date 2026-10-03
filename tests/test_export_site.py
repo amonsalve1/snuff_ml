@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -29,7 +30,9 @@ def _toy_preds() -> pd.DataFrame:
         (1, 2, "A", "Alice", False, True, 0.45, 1.0, 0.0),
         (1, 2, "B", "Bob", True, True, 0.55, 0.0, 0.0),
     ]
-    return pd.DataFrame(rows, columns=COLUMNS)
+    df = pd.DataFrame(rows, columns=COLUMNS)
+    df["_vs_field"] = export_site.log_odds_vs_field(df)
+    return df
 
 
 def _live_preds() -> pd.DataFrame:
@@ -39,7 +42,9 @@ def _live_preds() -> pd.DataFrame:
         (51, 1, "B", "Bob", False, False, 0.3, 0.0, 0.0),
         (51, 1, "C", "Cara", False, False, 0.2, 0.0, 0.0),
     ]
-    return pd.DataFrame(rows, columns=COLUMNS)
+    df = pd.DataFrame(rows, columns=COLUMNS)
+    df["_vs_field"] = export_site.log_odds_vs_field(df)
+    return df
 
 
 def _toy_contrib(preds: pd.DataFrame) -> pd.DataFrame:
@@ -142,3 +147,64 @@ def test_labels_cover_model_features(features_df):
     cols = build.feature_columns(features_df)
     missing = [c for c in cols if c not in export_site.FEATURE_LABELS]
     assert not missing, f"features without site labels: {missing}"
+
+
+def test_top_k_why_orders_by_size_either_sign():
+    row = pd.Series({"a": 0.2, "b": -0.9, "c": 0.5, "d": 0.00001, "era_new": 5.0})
+    assert export_site.top_k_why(row) == [["b", -0.9], ["c", 0.5], ["a", 0.2]]
+
+
+def test_build_season_why_adds_up_to_total():
+    preds = _toy_preds()
+    preds["_row"] = preds.index
+    contrib = _toy_contrib(preds)
+    out = export_site.build_season(preds, contrib, 1)
+    for pl in out["players"]:
+        for why, rest, tot in zip(pl["why"], pl["why_rest"], pl["why_total"]):
+            if why is None:
+                assert rest is None and tot is None
+                continue
+            assert abs(sum(v for _, v in why) + rest - tot) < 0.002
+
+
+def test_relative_contributions_explain_the_odds():
+    """the claim the why panel rests on, on a real fitted pipeline.
+
+    contributions scaled by the calibrator and centred on the field should sum
+    to log(p / geometric mean p) within an episode. it is exact up to the
+    curvature of the sigmoid, which is small when win probabilities are.
+    """
+    from types import SimpleNamespace
+
+    from sklearn.compose import ColumnTransformer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    rng = np.random.default_rng(0)
+    n = 1200
+    X = pd.DataFrame({"a": rng.normal(size=n), "b": rng.normal(size=n), "c": rng.normal(size=n)})
+    y = (rng.random(n) < 1 / (1 + np.exp(-(-4.5 + 1.2 * X["a"] - 0.8 * X["b"])))).astype(int)
+    pipe = Pipeline([("pre", ColumnTransformer([("num", StandardScaler(), ["a", "b", "c"])])),
+                     ("clf", LogisticRegression(class_weight="balanced"))]).fit(X, y)
+    raw = pipe.predict_proba(X)[:, 1]
+    logit = np.log(raw / (1 - raw)).reshape(-1, 1)
+    cal = LogisticRegression().fit(logit, y)
+    # pin the slope where the real calibrators sit (0.47 pooled, 0.24 new era),
+    # so leaving it out of the contributions is a real error here too
+    cal.coef_ = np.array([[0.3]])
+    cal.intercept_ = np.array([-3.0])
+    model = SimpleNamespace(pipeline=pipe, feature_cols=["a", "b", "c"], calibrator=cal)
+
+    rows = X.iloc[:120].copy()
+    rows["season"], rows["episode"] = 1, np.repeat(np.arange(10), 12)
+    p = cal.predict_proba(np.log(raw[:120] / (1 - raw[:120])).reshape(-1, 1))[:, 1]
+    rows["win_prob"] = p / pd.Series(p).groupby(rows["episode"].to_numpy()).transform("sum").to_numpy()
+    rel = export_site.relative_to_field(export_site.logit_contributions(model, rows), rows)
+    gap = (rel.sum(axis=1) - export_site.log_odds_vs_field(rows)).abs()
+    assert gap.median() < 0.05
+    # and without the calibrator slope the same sum overshoots badly
+    unscaled = SimpleNamespace(pipeline=pipe, feature_cols=["a", "b", "c"], calibrator=None)
+    raw_rel = export_site.relative_to_field(export_site.logit_contributions(unscaled, rows), rows)
+    raw_gap = (raw_rel.sum(axis=1) - export_site.log_odds_vs_field(rows)).abs()
+    assert raw_gap.median() > 3 * gap.median()

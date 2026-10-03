@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from snuffml import config
@@ -103,6 +104,26 @@ def blend_contributions(blend: EraBlendModel, rows: pd.DataFrame) -> pd.DataFram
     return contrib
 
 
+def relative_to_field(contrib: pd.DataFrame, rows: pd.DataFrame) -> pd.DataFrame:
+    """Each feature's push minus the average push on everyone alive that episode.
+
+    Probabilities are normalised within an episode, so only differences between
+    players move them. Measured this way anything the whole field shares
+    (the era, edgic coverage existing at all) cancels, and the row sums to the
+    player's log odds against a typical player still in it. rows must be
+    indexed the same way contrib is.
+    """
+    keys = rows.loc[contrib.index, ["season", "episode"]]
+    contrib = contrib[[c for c in contrib.columns if not c.startswith("era_")]]
+    return contrib - contrib.groupby([keys["season"], keys["episode"]]).transform("mean")
+
+
+def log_odds_vs_field(rows: pd.DataFrame) -> pd.Series:
+    """log(p / geometric mean of p) over everyone alive that episode."""
+    lp = np.log(rows["win_prob"].clip(lower=1e-9))
+    return lp - lp.groupby([rows["season"], rows["episode"]]).transform("mean")
+
+
 def loso_contributions(preds: pd.DataFrame) -> pd.DataFrame:
     """Contributions from the same held-out model that made each prediction.
 
@@ -177,14 +198,12 @@ def predict_airing(preds: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return rows, contrib
 
 
-def top_k_why(contrib_row: pd.Series, k: int = 3) -> list[list]:
+def top_k_why(contrib_row: pd.Series, k: int = 6) -> list[list]:
+    """The k biggest pushes either way, biggest first."""
     row = contrib_row[[c for c in contrib_row.index if not c.startswith("era_")]]
-    row = row[row.abs() > 1e-4].sort_values()
-    down = row.head(k)
-    up = row.tail(k).iloc[::-1]
-    out = [[key, round(float(v), 3)] for key, v in up.items() if v > 0]
-    out += [[key, round(float(v), 3)] for key, v in down.items() if v < 0]
-    return out
+    row = row[row.abs() > 1e-4]
+    row = row.reindex(row.abs().sort_values(ascending=False).index).head(k)
+    return [[key, round(float(v), 3)] for key, v in row.items()]
 
 
 def top_pick(rows: pd.DataFrame) -> pd.Series:
@@ -333,14 +352,24 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
         p = p.sort_values("episode")
         by_ep = p.set_index("episode")
         boot = int(p["episode"].max())
-        probs, whys = [], []
+        probs, whys, rest, total = [], [], [], []
         for e in eps:
             if e in by_ep.index:
+                r = by_ep.loc[e, "_row"]
                 probs.append(round(float(by_ep.loc[e, "win_prob"]), 4))
-                whys.append(top_k_why(contrib.loc[by_ep.loc[e, "_row"]]))
+                top = top_k_why(contrib.loc[r])
+                whys.append(top)
+                # what the shown rows leave out, so the panel always adds up
+                # to the total: the smaller features plus whatever the linear
+                # read misses at the top of the sigmoid
+                tot = float(by_ep.loc[e, "_vs_field"])
+                total.append(round(tot, 3))
+                rest.append(round(tot - sum(v for _, v in top), 3))
             else:
                 probs.append(None)
                 whys.append(None)
+                rest.append(None)
+                total.append(None)
         players.append(
             {
                 "id": str(cid),
@@ -349,6 +378,8 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
                 "boot": None if boot == max(eps) else boot,
                 "probs": probs,
                 "why": whys,
+                "why_rest": rest,
+                "why_total": total,
             }
         )
     players.sort(key=lambda pl: (-(pl["probs"][-1] or 0), pl["name"]))
@@ -445,6 +476,20 @@ def build_insights(preds: pd.DataFrame) -> dict:
     }
 
 
+def check_why_adds_up(rel: pd.DataFrame, rows: pd.DataFrame) -> None:
+    """The factors have to explain the odds they sit under, or stop the export.
+
+    rel summed across every feature should land on the log odds against the
+    field. measured at a 0.025 median gap; a wide gap means the contributions
+    and the probabilities came from different models or different data.
+    """
+    gap = (rel.sum(axis=1) - rows.loc[rel.index, "_vs_field"]).abs()
+    med, p90 = float(gap.median()), float(gap.quantile(0.9))
+    print(f"why vs odds: median gap {med:.3f}, p90 {p90:.3f} (log units)")
+    if med > 0.1:
+        raise SystemExit(f"why panels don't explain the odds: median gap {med:.3f}")
+
+
 def sanity_check(preds: pd.DataFrame, out_dir: Path, live: pd.DataFrame | None = None) -> None:
     n_done = preds["season"].nunique()
     live_seasons = 0 if live is None or not len(live) else live["season"].nunique()
@@ -499,6 +544,10 @@ def main() -> None:
     # seasons only, an airing season has nothing to say about how it ended
     both = pd.concat([preds, live], ignore_index=True) if len(live) else preds
     both_contrib = pd.concat([contrib, live_contrib]) if len(live) else contrib
+    both["_vs_field"] = log_odds_vs_field(both)
+    by_row = both.set_index("_row")
+    both_contrib = relative_to_field(both_contrib, by_row)
+    check_why_adds_up(both_contrib, by_row)
 
     out = config.PROJECT_ROOT / "docs" / "data"
     (out / "seasons").mkdir(parents=True, exist_ok=True)
