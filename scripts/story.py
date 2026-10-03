@@ -144,6 +144,7 @@ def _static(key: tuple[str, int]) -> bytes:
     font = TTFont(DOCS / "fonts" / file)
     if axes:
         font = instancer.instantiateVariableFont(font, axes)
+    font.recalcTimestamp = False  # same bytes every run, so reruns don't churn the svgs
     buf = io.BytesIO()
     font.flavor = None
     font.save(buf)
@@ -158,6 +159,7 @@ def _woff2(key: tuple[str, int], chars: str) -> str:
     sub.populate(text=chars)
     sub.subset(font)
     font.flavor = "woff2"
+    font.recalcTimestamp = False
     buf = io.BytesIO()
     font.save(buf)
     return base64.b64encode(buf.getvalue()).decode()
@@ -642,6 +644,92 @@ QUARTERS = by_quarter()
 # ---------------------------------------------------------------- the banner
 
 
+CORAL = "#ef5a35"  # the wordmark, and the outer layer of the logo flame
+
+
+def text_width(s: str, key: tuple[str, int], size: float, track: float = 0) -> float:
+    """Advance width of `s` in one of the embedded faces, in screen units."""
+    font = TTFont(io.BytesIO(_static(key)))
+    cmap, hmtx = font.getBestCmap(), font["hmtx"]
+    units = sum(hmtx[cmap[ord(ch)]][0] for ch in s)
+    return units * size / font["head"].unitsPerEm + track * (len(s) - 1)
+
+
+# the logo's silhouette: one flame curling right, a lick off each shoulder
+FLAME_SHAPE = [
+    "........x.....",
+    ".......xx.....",
+    "......xxx.....",
+    "..x..xxxx.....",
+    "..xx.xxxxx.x..",
+    "..xxxxxxxx.xx.",
+    "..xxxxxxxxxxx.",
+    "..xxxxxxxxxxx.",
+    ".xxxxxxxxxxxx.",
+    ".xxxxxxxxxxxxx",
+    ".xxxxxxxxxxxxx",
+    ".xxxxxxxxxxxxx",
+    ".xxxxxxxxxxxxx",
+    ".xxxxxxxxxxxxx",
+    "..xxxxxxxxxxx.",
+    "..xxxxxxxxxxx.",
+    "...xxxxxxxxx..",
+    ".....xxxxx....",
+]
+# outline to core: the wordmark's coral on the outside, cream in the heart
+FLAME_RAMP = ["#8c2f12", "#ef5a35", "#f5913a", "#ffc94f", "#fff1c9"]
+
+
+def ml_flame(art, x0, top):
+    """The logo: a little flame in glasses, because it reads the edit for a
+    living. Coloured by depth, so the layers of the flame fall out of the
+    silhouette on their own."""
+    cells = {(x, y) for y, row in enumerate(FLAME_SHAPE) for x, ch in enumerate(row) if ch == "x"}
+    depth, ring_, d = {}, {c for c in cells if any((c[0] + dx, c[1] + dy) not in cells
+                                                  for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))}, 0
+    while ring_:
+        for c in ring_:
+            depth[c] = d
+        d += 1
+        rest = cells - set(depth)
+        ring_ = {c for c in rest if any((c[0] + dx, c[1] + dy) in depth
+                                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))}
+    # a soft warm glow behind it
+    gx, gy = x0 + 7, top + 11
+    for y in range(top - 6, top + len(FLAME_SHAPE) + 4):
+        for x in range(x0 - 8, x0 + 23):
+            r = math.hypot(x - gx, (y - gy) * 0.9) / 14
+            if r < 1:
+                art.put(x, y, beach.rgb("#ffd59a"), 0.28 * (1 - r) ** 2)
+    for (x, y), k in depth.items():
+        k = min(k, len(FLAME_RAMP) - 1)
+        if k == 4 and y < 15:  # the heart sits low, like a real flame
+            k = 3
+        art.put(x0 + x, top + y, beach.rgb(FLAME_RAMP[k]))
+    # the face: round glasses, eyes glancing right, blush, a small smile
+    navy, lens = beach.rgb(NAVY), beach.rgb("#fffaf0")
+    for lx in (2, 8):
+        for dx in range(4):
+            for dy in range(4):
+                if dx in (0, 3) and dy in (0, 3):
+                    continue
+                frame = dx in (0, 3) or dy in (0, 3)
+                art.put(x0 + lx + dx, top + 9 + dy, navy if frame else lens)
+        art.put(x0 + lx + 2, top + 11, navy)
+    art.put(x0 + 6, top + 10, navy)
+    art.put(x0 + 7, top + 10, navy)
+    blush = beach.rgb("#f07a7a")
+    art.put(x0 + 2, top + 14, blush, 0.75)
+    art.put(x0 + 11, top + 14, blush, 0.75)
+    mouth = beach.rgb("#8c2f12")
+    for x, y in ((6, 14), (7, 14)):
+        art.put(x0 + x, top + y, mouth)
+    art.put(x0 + 5, top + 13, mouth, 0.8)
+    art.put(x0 + 8, top + 13, mouth, 0.8)
+    for x, y, c in ((13, 1, "#ffc94f"), (11, -2, "#f5913a")):  # two sparks
+        art.put(x0 + x, top + y, beach.rgb(c))
+
+
 def banner():
     """snuffml at golden hour: a setting sun, its path on the sea, two islands."""
     h = 300
@@ -700,14 +788,22 @@ def banner():
     hump(C - 14, 18, 3)
     palm("PALM_TALL", C - 24, hz - 28)
 
+    # the word and the logo, centred together
+    size, track, gap = 88, -2.5, 18
+    word = text_width("snuffml", ("headline", 600), size, track)
+    logo_w = 14 * PX
+    left = (W - (word + gap + logo_w)) / 2
+    ml_flame(art, round((left + word + gap) / PX), 8)
+
     o = svg_open(h, "snuffml")
     USED.setdefault(("headline", 600), set()).update("snuffml")
-    for dy, fill, op in ((3, "#fff4dc", 0.5), (0, NAVY, 1)):
-        o.append(f'<text x="{W / 2}" y="{104 + dy}" text-anchor="middle" '
-                 f'font-family="{STACK["headline"]}" font-size="88" font-weight="600" '
-                 f'font-style="italic" fill="{fill}" opacity="{op}" letter-spacing="-2.5">'
-                 'snuffml</text>')
-    o.append(t(W / 2, 148, "predicting who wins survivor from how the show is edited", size=20,
+    tx = left
+    # a cream drop shadow, down and to the right, instead of an outline
+    for d, fill, op in ((4, "#fff4dc", 0.9), (0, CORAL, 1)):
+        o.append(f'<text x="{tx + d * 0.75:.1f}" y="{104 + d}" font-family="{STACK["headline"]}" '
+                 f'font-size="{size}" font-weight="600" font-style="italic" fill="{fill}" '
+                 f'opacity="{op}" letter-spacing="{track}">snuffml</text>')
+    o.append(t(W / 2, 158, "predicting who wins survivor from how the show is edited", size=20,
                fill="#24324d", anchor="middle"))
     finish("banner.svg", o, art, h, T)
 
