@@ -2,7 +2,7 @@
 // premiere to night at final tribal, driven by season progress, not the clock.
 // everything renders at art resolution into a small canvas and is scaled up
 // with smoothing off, so a full relight is cheap enough to animate.
-import { PALETTE as P, SPRITES } from "./jungle-sprites.js?v=32";
+import { PALETTE as P, SPRITES } from "./jungle-sprites.js?v=34";
 
 const S = 4;
 const ROWS = 172, HORIZON = 82, SHORE = 112, BASE = 160;
@@ -264,6 +264,7 @@ export function createStage(host, { fps = 8, onLight = () => {} } = {}) {
   }
 
   function paint(now) {
+    if (!C) return; // no width yet (a hidden tab); the resize observer paints once there is
     const frame = reduce ? 0 : Math.floor(now / (1000 / fps));
     if (tDur) {
       const t = Math.min(1, (now - tStart) / tDur);

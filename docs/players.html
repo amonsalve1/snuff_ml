@@ -9,7 +9,7 @@
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/dm-mono-500.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="pages.css?v=32">
+<link rel="stylesheet" href="pages.css?v=34">
 <style>
 .find{margin:36px 0 6px;display:grid;grid-template-columns:minmax(0,560px) 1fr;gap:24px;align-items:end}
 .search{position:relative}
@@ -80,8 +80,8 @@
   Every probability is out of sample: the model never saw the season it's predicting.
   <a href="method.html">How it works</a> · <a href="https://github.com/amonsalve1/snuff_ml">code and data on GitHub</a></p></footer>
 <script type="module">
-import { loadIndex, loadAll, heat, ranked, slug, ordinal } from "./js/common.js?v=32";
-import { band, nav } from "./js/band.js?v=32";
+import { loadIndex, loadAll, heat, ranked, place, slug, ordinal } from "./js/common.js?v=34";
+import { band, nav } from "./js/band.js?v=34";
 
 const hero = document.getElementById("hero");
 hero.innerHTML = nav("Players") + `<div class="copy"><div class="kicker">Every castaway, every run</div>
@@ -104,7 +104,7 @@ for (const s of seasons) {
       : live ? (p.boot ? `out ep ${p.boot}` : "still in")
       : p.ftc ? "final tribal" : p.boot ? `out ep ${p.boot}` : "out in the finale";
     const peakIdx = p.probs.reduce((b, v, j) => (v != null && v > (p.probs[b] ?? -1) ? j : b), Math.max(0, p.probs.findIndex((v) => v != null)));
-    const run = { s, p, finish, live, peakIdx, lastIdx, peak: p.probs[peakIdx], lastRank: lastIdx >= 0 ? ranked(s, lastIdx).indexOf(p) + 1 : null, nAt: lastIdx >= 0 ? ranked(s, lastIdx).length : null };
+    const run = { s, p, finish, live, peakIdx, lastIdx, peak: p.probs[peakIdx], lastRank: lastIdx >= 0 ? place(s, lastIdx, p) : null, nAt: lastIdx >= 0 ? ranked(s, lastIdx).length : null };
     if (!people.has(p.id)) people.set(p.id, { id: p.id, names: new Set(), runs: [] });
     const who = people.get(p.id);
     who.names.add(p.name); who.runs.push(run);

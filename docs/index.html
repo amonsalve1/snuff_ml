@@ -9,8 +9,8 @@
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/dm-mono-500.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="pages.css?v=32">
-<link rel="stylesheet" href="season.css?v=32">
+<link rel="stylesheet" href="pages.css?v=34">
+<link rel="stylesheet" href="season.css?v=34">
 <script>
   // links from the old single page site: #/season/41/7/<id> and the two views it had
   (function () {
@@ -41,18 +41,18 @@
   <button type="button" data-mode="focus" aria-pressed="true">Focus</button>
   <button type="button" data-mode="all" aria-pressed="false">Everyone</button>
   <span class="mode-hint" id="mode-hint"></span></div>
-<div id="chart"></div><div id="rankpath"></div>
+<div id="chart"></div><div id="rankpath"></div><div id="board"></div>
 <p class="keys">← → step through the season · click any name under a torch</p></section>
 </div></article>
 <footer class="site-foot"><p><b>snuffml</b> · predicting Survivor winners from nothing but the edit.
   Every probability is out of sample: the model never saw the season it's predicting.
   <a href="method.html">How it works</a> · <a href="https://github.com/amonsalve1/snuff_ml">code and data on GitHub</a></p></footer>
 <script type="module">
-import { load, loadIndex, loadTrack, ranked, heat, seasonChart, slug, ordinal } from "./js/common.js?v=32";
-import { story } from "./js/story.js?v=32";
-import { rollText, fadeSwap, countTo, tween } from "./js/motion.js?v=32";
-import { createStage } from "./js/stage.js?v=32";
-import { renderPanel, rankPath } from "./js/panel.js?v=32";
+import { load, loadIndex, loadTrack, ranked, place, heat, seasonChart, slug, ordinal } from "./js/common.js?v=34";
+import { story } from "./js/story.js?v=34";
+import { rollText, fadeSwap, countTo, tween } from "./js/motion.js?v=34";
+import { createStage } from "./js/stage.js?v=34";
+import { renderPanel, rankPath, board } from "./js/panel.js?v=34";
 // #s47/ep4/rachel. the old #ep7/erika links still mean s41. a bare url opens
 // whatever is airing, or the latest season when nothing is
 const hash = location.hash;
@@ -79,7 +79,7 @@ const winner = s.players.find((p) => p.winner);
 // finished one on the frame where the eventual winner is still in the crowd
 function openIdx() {
   if (live || !winner) return n - 1;
-  const top3 = eps.findIndex((_, j) => winner.probs[j] != null && ranked(s, j).indexOf(winner) < 3);
+  const top3 = eps.findIndex((_, j) => winner.probs[j] != null && place(s, j, winner) <= 3);
   return Math.max(1, Math.min(top3 < 0 ? n - 1 : top3, Math.floor((n - 1) / 2)));
 }
 const asked = route && route[2] ? eps.indexOf(+route[2]) : -1;
@@ -170,6 +170,7 @@ function render(animate) {
     + Array.from({ length: arc - n }, (_, k) => `<span class="future" title="not aired yet">${eps[n - 1] + k + 1}</span>`).join("");
   renderPanel(document.getElementById("panel"), { s, i, sel, labels: L, track, ranked, animate });
   rankPath(document.getElementById("rankpath"), { s, i, sel, ranked, onEpisode: (j) => { stop(); go(j); } });
+  board(document.getElementById("board"), { s, i, sel, ranked, onPick: (p) => { st.sel = p; render(true); } });
   if (chartFor !== sel) {
     chartObj = seasonChart(document.getElementById("chart"), s, sel, CHART, tween, { mode: chartMode, slots: arc,
       onPick: (p) => { st.sel = p; render(true); } });

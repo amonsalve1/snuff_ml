@@ -1,4 +1,5 @@
-import { countTo, reduce } from "./motion.js?v=32";
+import { place } from "./common.js?v=34";
+import { countTo, reduce } from "./motion.js?v=34";
 
 // the lower half of the season view: a stat strip, the model's track record
 // at this level, and a waterfall from a typical player's odds to this one's.
@@ -58,7 +59,7 @@ export function renderPanel(el, { s, i, sel, labels, track: tr, ranked, animate 
   const out = sel.probs[i] == null;
   let wi = i; while (wi > 0 && sel.probs[wi] == null) wi--;
   const p = sel.probs[wi], q = wi > 0 ? sel.probs[wi - 1] : null;
-  const al = ranked(s, wi), rank = al.indexOf(sel) + 1, nAt = al.length;
+  const al = ranked(s, wi), rank = place(s, wi, sel), nAt = al.length;
   // straight from the export: top rows, whatever they leave out, and the total
   const rec = sel.why[wi] && { rows: sel.why[wi], rest: sel.why_rest[wi], resid: 0, total: sel.why_total[wi] };
   const name = sel.name;
@@ -178,7 +179,7 @@ function cellInk(h, later = false) {
 export function rankPath(el, { s, i, sel, ranked, onEpisode = () => {} }) {
   const cells = s.episodes.map((e, j) => {
     if (sel.probs[j] == null) return `<button type="button" class="gone" data-i="${j}" aria-label="episode ${e}: ${sel.name} is out">·</button>`;
-    const al = ranked(s, j), r = al.indexOf(sel) + 1;
+    const al = ranked(s, j), r = place(s, j, sel);
     const heat = Math.max(0, 1 - (r - 1) / Math.max(1, al.length - 1));
     const c = cellInk(heat, j > i);
     return `<button type="button" data-i="${j}" class="${j === i ? "now" : ""} ${j > i ? "later" : ""}" style="background:${c.bg};color:${c.ink}"
@@ -187,4 +188,46 @@ export function rankPath(el, { s, i, sel, ranked, onEpisode = () => {} }) {
   el.innerHTML = `<div class="rp-h"><b>${sel.name}'s rank, episode by episode</b><span>1 is the model's pick · click to jump</span></div><div class="rp">${cells}</div>`;
   el.querySelector(".rp").style.gridTemplateColumns = `repeat(${s.episodes.length}, 1fr)`;
   el.querySelector(".rp").onclick = (ev) => { const b = ev.target.closest("button"); if (b) onEpisode(+b.dataset.i); };
+}
+
+// everyone still in, best odds first. rows are kept per player and slid into
+// their new place, so stepping an episode shows who passed whom
+let boardRows = null, boardFor = null;
+export function board(el, { s, i, sel, ranked, onPick = () => {} }) {
+  const e = s.episodes[i], al = ranked(s, i);
+  // last week's order without last week's boot, so their exit doesn't read as everyone moving up
+  const before = i > 0 ? ranked(s, i - 1).filter((p) => p.boot !== s.episodes[i - 1]) : null;
+  if (boardFor !== s) {
+    el.innerHTML = `<div class="rp-h"><b id="bd-h"></b><span>click a name to follow them</span></div><ol class="bd"></ol>`;
+    boardRows = new Map(s.players.map((p) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<button type="button"><span class="r"></span><span class="nm">${p.name}</span><span class="bar"><i></i></span><span class="pc"></span><span class="mv"></span></button>`;
+      li.querySelector("button").onclick = () => onPick(p);
+      return [p, li];
+    }));
+    boardFor = s;
+  }
+  el.querySelector("#bd-h").textContent = `Everyone's rank after episode ${e}`;
+  const ol = el.querySelector(".bd"), top = al.length ? al[0].probs[i] : 1;
+  const was = new Map([...boardRows].map(([p, li]) => [p, li.isConnected ? li.getBoundingClientRect().top : null]));
+  ol.replaceChildren(...al.map((p) => boardRows.get(p)));
+  al.forEach((p) => {
+    const li = boardRows.get(p), r = place(s, i, p);
+    const moved = before && before.includes(p) ? 1 + before.filter((q) => q.probs[i - 1] > p.probs[i - 1]).length - r : 0;
+    const tied = al.some((q) => q !== p && q.probs[i] === p.probs[i]);
+    li.className = `${p === sel ? "sel" : ""} ${p.boot === e ? "out" : ""}`;
+    li.querySelector(".r").textContent = r;
+    li.querySelector(".bar i").style.width = `${(p.probs[i] / top) * 100}%`;
+    li.querySelector(".pc").textContent = `${(p.probs[i] * 100).toFixed(1)}%`;
+    const mv = li.querySelector(".mv");
+    mv.className = `mv ${p.boot === e ? "" : moved > 0 ? "up" : moved < 0 ? "down" : ""}`;
+    mv.textContent = p.boot === e ? "voted out" : moved > 0 ? `▲${moved}` : moved < 0 ? `▼${-moved}` : "–";
+    li.querySelector("button").setAttribute("aria-label", `${tied ? "tied " : ""}${ord(r)}, ${p.name}, ${(p.probs[i] * 100).toFixed(1)}%${p.boot === e ? ", out tonight" : moved ? `, ${moved > 0 ? "up" : "down"} ${Math.abs(moved)}` : ""}`);
+    li.querySelector("button").setAttribute("aria-pressed", String(p === sel));
+    const y = was.get(p);
+    if (y != null && !reduce() && !document.hidden) {
+      const dy = y - li.getBoundingClientRect().top;
+      if (dy) li.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(.2,.7,.2,1)" });
+    }
+  });
 }

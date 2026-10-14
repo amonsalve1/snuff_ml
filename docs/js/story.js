@@ -3,6 +3,8 @@
 // headline didn't already state. phrasing rotates by episode so playing a
 // season through doesn't read the same line twice in a row.
 
+import { place } from "./common.js?v=34";
+
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
   "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
 const ORD_WORDS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"];
@@ -32,7 +34,7 @@ function frame({ s, i, sel, ranked, live = false, of = null, season = `Survivor 
   const eps = s.episodes, n = eps.length, e = eps[i];
   // the newest episode of an airing season is just the latest one, not the end
   const fin = i === n - 1 && !live;
-  const al = ranked(s, i), N = al.length, rank = (p, j = i) => ranked(s, j).indexOf(p) + 1;
+  const al = ranked(s, i), N = al.length, rank = (p, j = i) => place(s, j, p);
   const lead = al[0];
   const prevLead = i > 0 ? ranked(s, i - 1)[0] : null;
   let streak = 1; for (let j = i - 1; j >= 0 && ranked(s, j)[0] === lead; j--) streak++;

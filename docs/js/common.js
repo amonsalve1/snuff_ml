@@ -27,7 +27,10 @@ export const ordinal = (k) => { const t = k % 100; return k + (t > 10 && t < 14 
 
 export const alive = (s, i) => s.players.filter((p) => p.probs[i] != null);
 export const heat = (s, p, i) => (p.probs[i] == null ? null : p.probs[i] * alive(s, i).length);
-export const ranked = (s, i) => alive(s, i).sort((a, b) => b.probs[i] - a.probs[i]);
+export const ranked = (s, i) => alive(s, i).sort((a, b) => b.probs[i] - a.probs[i] || a.name.localeCompare(b.name));
+// players with identical features get identical odds, so a tie shares a rank:
+// 1 + however many are strictly ahead
+export const place = (s, i, p) => 1 + alive(s, i).filter((q) => q.probs[i] > p.probs[i]).length;
 
 
 const NS = "http://www.w3.org/2000/svg";
