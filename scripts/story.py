@@ -1494,7 +1494,9 @@ def standing(d: dict, i: int) -> list[tuple[str, float]]:
     ep = d["episodes"][i]
     still = [(p["name"], p["probs"][i]) for p in d["players"]
              if p["probs"][i] is not None and (p["boot"] is None or p["boot"] > ep)]
-    return sorted(still, key=lambda r: -r[1])
+    # the export rounds to 4 places; on a tie, follow the frozen log's full-precision order
+    logged = FORWARD_LOG[FORWARD_LOG["episode"] == ep].set_index("castaway")["rank"]
+    return sorted(still, key=lambda r: (-r[1], logged.get(r[0], 99)))
 
 
 ARROW = ["...x...", "..xxx..", ".xxxxx.", "xxxxxxx", "..xxx..", "..xxx.."]
@@ -1720,9 +1722,10 @@ def forward_block() -> str:
                 "The site uses the same frozen file."), ""]
     out += table(["after episode", "1st", "2nd", "3rd", "even split", "logged"], rows)
     note = ""
-    if len(rows) > 1 and len(set(first_logged)) == 1:
-        note = (f" Episodes {', '.join(str(r[0]) for r in rows[:-1])} and {rows[-1][0]} were "
-                f"logged together on {first_logged.iloc[0]}, after episode {rows[-1][0]} aired; "
+    batch = [int(e) for e, day in first_logged.items() if day == first_logged.iloc[0]]
+    if len(batch) > 1:
+        note = (f" Episodes {', '.join(str(e) for e in batch[:-1])} and {batch[-1]} were "
+                f"logged together on {first_logged.iloc[0]}, after episode {batch[-1]} aired; "
                 "every later episode is logged the week it airs.")
     q_hit, q_luck = QUARTERS[0]
     out += ["", para(f"The early weeks are close to chance: in a season's first quarter the winner "
