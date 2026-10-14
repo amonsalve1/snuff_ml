@@ -329,7 +329,7 @@ def build_index(preds: pd.DataFrame, names: dict[int, str]) -> dict:
         wprobs = []
         for e in eps:
             we = tracked[tracked["episode"] == e]
-            wprobs.append(round(float(we["win_prob"].iloc[0]), 4) if len(we) else None)
+            wprobs.append(round(float(we["win_prob"].iloc[0]), 5) if len(we) else None)
         entry = {
             "season": int(s),
             "name": names.get(int(s), ""),
@@ -373,7 +373,7 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
         for e in eps:
             if e in by_ep.index:
                 r = by_ep.loc[e, "_row"]
-                probs.append(round(float(by_ep.loc[e, "win_prob"]), 4))
+                probs.append(round(float(by_ep.loc[e, "win_prob"]), 5))
                 top = top_k_why(contrib.loc[r])
                 whys.append(top)
                 # what the shown rows leave out, so the panel always adds up

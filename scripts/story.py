@@ -1494,9 +1494,12 @@ def standing(d: dict, i: int) -> list[tuple[str, float]]:
     ep = d["episodes"][i]
     still = [(p["name"], p["probs"][i]) for p in d["players"]
              if p["probs"][i] is not None and (p["boot"] is None or p["boot"] > ep)]
-    # the export rounds to 4 places; on a tie, follow the frozen log's full-precision order
-    logged = FORWARD_LOG[FORWARD_LOG["episode"] == ep].set_index("castaway")["rank"]
-    return sorted(still, key=lambda r: (-r[1], logged.get(r[0], 99)))
+    return sorted(still, key=lambda r: (-r[1], r[0]))
+
+
+def places(board: list[tuple[str, float]]) -> dict[str, int]:
+    """Rank with ties shared: identical odds get the same number, as on the site."""
+    return {name: 1 + sum(q > p for _, q in board) for name, p in board}
 
 
 ARROW = ["...x...", "..xxx..", ".xxxxx.", "xxxxxxx", "..xxx..", "..xxx.."]
@@ -1511,7 +1514,8 @@ def live_card(d: dict) -> tuple[str, str]:
     art, top = stage(h, T, sea_x=0.82)
     season, ep = d["season"], d["episodes"][-1]
     now = standing(d, -1)
-    before = {name: k for k, (name, _) in enumerate(standing(d, -2))} if len(d["episodes"]) > 1 else {}
+    at = places(now)
+    before = places(standing(d, -2)) if len(d["episodes"]) > 1 else {}
     top3 = now[:3]
     even = 1 / len(now)
     o = svg_open(h, f"season {season}, live")
@@ -1524,7 +1528,7 @@ def live_card(d: dict) -> tuple[str, str]:
     y0 = top + 30
     for k, (name, prob) in enumerate(top3):
         y = y0 + k * 34
-        o.append(t(TX, y + 16, k + 1, family="mono", fill=T["faint"]))
+        o.append(t(TX, y + 16, at[name], family="mono", fill=T["faint"]))
         o.append(title(TX + 34, y + 18, name.lower(), T, size=22,
                        fill=T["accent"] if k == 0 else None))
         bw = max(1, round(prob * scale / PX))
@@ -1533,14 +1537,14 @@ def live_card(d: dict) -> tuple[str, str]:
         o.append(t(bx + bw * PX + 10, y + 16, f"{prob:.0%}", family="mono",
                    fill=T["accent"] if k == 0 else T["muted"]))
         ax = round((W - 130) / PX)
-        if name in before and before[name] != k:
-            up = before[name] > k
+        if name in before and before[name] != at[name]:
+            up = before[name] > at[name]
             col = beach.rgb("#2f9e55" if up else "#d1453b")
             for r, row in enumerate(ARROW if up else ARROW[::-1]):
                 for c, ch in enumerate(row):
                     if ch == "x":
                         art.put(ax + c, round(y / PX) - 1 + r, col)
-            moved = abs(before[name] - k)
+            moved = abs(before[name] - at[name])
             o.append(t(ax * PX + 38, y + 16, f"{'up' if up else 'down'} {moved}", family="mono",
                        fill="#2f9e55" if up else "#d1453b"))
         elif name in before:
@@ -1707,7 +1711,7 @@ def forward_block() -> str:
     log = FORWARD_LOG
     rows = []
     for ep, g in log.groupby("episode"):
-        g = g.sort_values("rank")
+        g = g.sort_values(["win_prob", "castaway"], ascending=[False, True])  # ties by name, as everywhere else
         top = [f"{r.castaway} {r.win_prob:.1%}" for r in g.head(3).itertuples()]
         rows.append([int(ep), *top, f"{1 / int(g['alive'].iloc[0]):.1%}", g["logged_on"].iloc[0]])
     first_logged = log.groupby("episode")["logged_on"].first()

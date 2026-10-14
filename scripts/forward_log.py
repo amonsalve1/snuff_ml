@@ -54,9 +54,11 @@ def main(season: int = 51) -> None:
     for ep, g in rows.groupby("episode"):
         if int(ep) in done:
             continue
-        g = g.sort_values("win_prob", ascending=False).reset_index(drop=True)
-        for i, r in g.iterrows():
-            new.append({"logged_on": date.today().isoformat(), "episode": int(ep), "rank": i + 1,
+        g = g.sort_values(["win_prob", "castaway"], ascending=[False, True]).reset_index(drop=True)
+        # identical odds share a rank, as on the site
+        g["place"] = g["win_prob"].rank(ascending=False, method="min").astype(int)
+        for _, r in g.iterrows():
+            new.append({"logged_on": date.today().isoformat(), "episode": int(ep), "rank": int(r["place"]),
                         "castaway": r["castaway"], "win_prob": round(float(r["win_prob"]), 4),
                         "alive": len(g), "model_sha256": meta["sha256"][:12]})
     if not new:
