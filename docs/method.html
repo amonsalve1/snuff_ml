@@ -9,7 +9,7 @@
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/dm-mono-500.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="pages.css?v=34">
+<link rel="stylesheet" href="pages.css?v=42">
 <style>
 .intro{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:20px;align-items:center;margin:34px 0 4px;padding:16px 20px;background:#fbf7ee;border:1px solid var(--rule);border-left:4px solid var(--flame);border-radius:4px}
 .intro .ex{font:500 11.5px "DM Mono";letter-spacing:.1em;text-transform:uppercase;color:var(--flame);white-space:nowrap}
@@ -108,9 +108,9 @@ details.nerd p{margin:0 0 12px;break-inside:avoid}details.nerd b{color:var(--ink
   Every probability is out of sample: the model never saw the season it's predicting.
   <a href="method.html">How it works</a> · <a href="https://github.com/amonsalve1/snuff_ml">code and data on GitHub</a></p></footer>
 <script type="module">
-import { loadIndex, loadTrack, loadSeason, ranked, heat, slug } from "./js/common.js?v=34";
-import { band, nav } from "./js/band.js?v=34";
-import { GROUPS } from "./js/panel.js?v=34";
+import { loadIndex, loadTrack, loadSeason, ranked, heat, slug, whyLabel } from "./js/common.js?v=42";
+import { band, nav } from "./js/band.js?v=42";
+import { GROUPS } from "./js/panel.js?v=42";
 
 const hero = document.getElementById("hero");
 hero.innerHTML = nav("Method") + `<div class="copy"><div class="kicker">Method</div>
@@ -144,7 +144,7 @@ let left = 0; for (const q of order) { if (q === me) break; left += q.probs[EP];
 // 4. her factors, multiplying out
 const rows = me.why[EP].slice(0, 5), rest = me.why_rest[EP] + me.why[EP].slice(5).reduce((a, [, v]) => a + v, 0), total = me.why_total[EP];
 const typical = p / Math.exp(total);
-const steps = [...rows.map(([k, v]) => ({ k, v, label: (index.labels[k] || [k, k])[v > 0 ? 0 : 1].replace(/\bthem\b/, "Erika") })), { k: "_rest", v: rest, label: "everything else" }];
+const steps = [...rows.map(([k, v, lvl]) => ({ k, v, label: whyLabel(index.labels, [k, v, lvl], "Erika") })), { k: "_rest", v: rest, label: "everything else" }];
 let cum = 0; const pts = [0];
 for (const st of steps) { st.a = cum; cum += st.v; st.b = cum; pts.push(cum); }
 const lo = Math.min(...pts), hi = Math.max(...pts), pad = (hi - lo) * 0.08 || 0.5;

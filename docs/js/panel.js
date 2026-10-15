@@ -1,5 +1,5 @@
-import { place } from "./common.js?v=34";
-import { countTo, reduce } from "./motion.js?v=34";
+import { place, whyLabel, tribeInk } from "./common.js?v=42";
+import { countTo, reduce } from "./motion.js?v=42";
 
 // the lower half of the season view: a stat strip, the model's track record
 // at this level, and a waterfall from a typical player's odds to this one's.
@@ -79,7 +79,7 @@ export function renderPanel(el, { s, i, sel, labels, track: tr, ranked, animate 
     // waterfall in log space: start at a typical player, end at this one
     const top = rec.rows.slice(0, 5);
     const other = rec.rows.slice(5).reduce((a, [, v]) => a + v, 0) + rec.rest + rec.resid;
-    const steps = [...top.map(([k, v]) => ({ k, v, label: (labels[k] || [k, k])[v > 0 ? 0 : 1].replace(/\bthem\b/, name).replace(/\btheir\b/, `${name}'s`), g: groupOf(k) })),
+    const steps = [...top.map(([k, v, lvl]) => ({ k, v, label: whyLabel(labels, [k, v, lvl], name), g: groupOf(k) })),
       { k: "_other", v: other, label: "all other factors", g: "" }];
     const typical = p / Math.exp(rec.total);
     let cum = 0;
@@ -198,16 +198,27 @@ export function board(el, { s, i, sel, ranked, onPick = () => {} }) {
   // last week's order without last week's boot, so their exit doesn't read as everyone moving up
   const before = i > 0 ? ranked(s, i - 1).filter((p) => p.boot !== s.episodes[i - 1]) : null;
   if (boardFor !== s) {
-    el.innerHTML = `<div class="rp-h"><b id="bd-h"></b><span>click a name to follow them</span></div><ol class="bd"></ol>`;
+    el.innerHTML = `<div class="rp-h"><b id="bd-h"></b><span>click a name to follow them</span></div><div class="bd-key"></div><ol class="bd"></ol>`;
     boardRows = new Map(s.players.map((p) => {
       const li = document.createElement("li");
-      li.innerHTML = `<button type="button"><span class="r"></span><span class="nm">${p.name}</span><span class="bar"><i></i></span><span class="pc"></span><span class="mv"></span></button>`;
+      li.innerHTML = `<button type="button"><span class="r"></span><span class="nm"><span class="tds"><i class="td og"></i><i class="td now"></i></span>${p.name}</span><span class="bar"><i></i></span><span class="pc"></span><span class="mv"></span></button>`;
       li.querySelector("button").onclick = () => onPick(p);
       return [p, li];
     }));
     boardFor = s;
   }
   el.querySelector("#bd-h").textContent = `Everyone's rank after episode ${e}`;
+  // tribe dots, from survivoR's colours; a key for the tribes in play this episode
+  // two dots: the tribe they started on, then the one they're on now if a swap
+  // or the merge moved them, so who crossed over reads at a glance
+  const tribes = s.tribes || [], tribeOf = (p) => tribes[p.tribe?.[i]];
+  const startOf = (p) => tribes[p.tribe?.slice(0, i + 1).find((x) => x != null)];
+  const inPlay = tribes.filter((t) => al.some((p) => tribeOf(p) === t || startOf(p) === t));
+  // one dot each until the first swap; the second appears once anyone has moved
+  const twoDots = al.some((p) => startOf(p) && tribeOf(p) !== startOf(p));
+  el.querySelector(".bd-key").innerHTML = inPlay.map((t) => `<span><i class="td" style="background:${tribeInk(t.colour)}"></i>${t.name}</span>`).join("")
+    + (twoDots ? `<span class="how">first dot: starting tribe · second: tribe now</span>` : "");
+  el.querySelector(".bd").classList.toggle("two", twoDots);
   const ol = el.querySelector(".bd"), top = al.length ? al[0].probs[i] : 1;
   const was = new Map([...boardRows].map(([p, li]) => [p, li.isConnected ? li.getBoundingClientRect().top : null]));
   ol.replaceChildren(...al.map((p) => boardRows.get(p)));
@@ -216,13 +227,23 @@ export function board(el, { s, i, sel, ranked, onPick = () => {} }) {
     const moved = before && before.includes(p) ? 1 + before.filter((q) => q.probs[i - 1] > p.probs[i - 1]).length - r : 0;
     const tied = al.some((q) => q !== p && q.probs[i] === p.probs[i]);
     li.className = `${p === sel ? "sel" : ""} ${p.boot === e ? "out" : ""}`;
+    const t = tribeOf(p), t0 = startOf(p), og = li.querySelector(".td.og"), now = li.querySelector(".td.now");
+    const swapped = t0 && t && t0 !== t;
+    og.style.background = t0 || t ? tribeInk((t0 || t).colour) : "transparent";
+    og.title = t0 || t ? `${swapped ? "started on " : ""}${(t0 || t).name}` : "";
+    // never moved: both dots match. a later swap or the merge replaces the
+    // second one; a tribe survivoR hasn't coloured yet is an empty ring, never
+    // the starting colour, which would read as "never moved"
+    now.style.background = t ? tribeInk(t.colour) : "transparent";
+    now.style.boxShadow = t ? "" : t0 ? "inset 0 0 0 1.5px #b3a78f" : "none";
+    now.title = t ? `now on ${t.name}` : t0 ? "tribe not known yet" : "";
     li.querySelector(".r").textContent = r;
     li.querySelector(".bar i").style.width = `${(p.probs[i] / top) * 100}%`;
     li.querySelector(".pc").textContent = `${(p.probs[i] * 100).toFixed(1)}%`;
     const mv = li.querySelector(".mv");
     mv.className = `mv ${p.boot === e ? "" : moved > 0 ? "up" : moved < 0 ? "down" : ""}`;
     mv.textContent = p.boot === e ? "voted out" : moved > 0 ? `▲${moved}` : moved < 0 ? `▼${-moved}` : "–";
-    li.querySelector("button").setAttribute("aria-label", `${tied ? "tied " : ""}${ord(r)}, ${p.name}, ${(p.probs[i] * 100).toFixed(1)}%${p.boot === e ? ", out tonight" : moved ? `, ${moved > 0 ? "up" : "down"} ${Math.abs(moved)}` : ""}`);
+    li.querySelector("button").setAttribute("aria-label", `${tied ? "tied " : ""}${ord(r)}, ${p.name}${swapped ? ` (started on ${t0.name}, now ${t.name})` : t ? ` (${t.name})` : ""}, ${(p.probs[i] * 100).toFixed(1)}%${p.boot === e ? ", out tonight" : moved ? `, ${moved > 0 ? "up" : "down"} ${Math.abs(moved)}` : ""}`);
     li.querySelector("button").setAttribute("aria-pressed", String(p === sel));
     const y = was.get(p);
     if (y != null && !reduce() && !document.hidden) {

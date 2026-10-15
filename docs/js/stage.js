@@ -2,7 +2,7 @@
 // premiere to night at final tribal, driven by season progress, not the clock.
 // everything renders at art resolution into a small canvas and is scaled up
 // with smoothing off, so a full relight is cheap enough to animate.
-import { PALETTE as P, SPRITES } from "./jungle-sprites.js?v=34";
+import { PALETTE as P, SPRITES } from "./jungle-sprites.js?v=42";
 
 const S = 4;
 const ROWS = 172, HORIZON = 82, SHORE = 112, BASE = 160;

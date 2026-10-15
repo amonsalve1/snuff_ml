@@ -219,3 +219,25 @@ export function seasonChart(host, s, sel, o, tweenFn, { mode = "focus", onPick =
     setMode(m) { mode = m; style(i0); },
   };
 }
+
+// a "why" row is [feature, push, level]. level says whether the player sits
+// above (+1) or below (-1) the field, and picks the wording; the push only
+// sets the bar. older exports have no level, so fall back to the push's sign
+export function whyLabel(labels, [k, v, lvl], name) {
+  const pair = labels[k] || [k, k];
+  return pair[(lvl ?? Math.sign(v)) > 0 ? 0 : 1].replace(/\bthem\b/, name).replace(/\btheir\b/i, `${name}'s`);
+}
+
+// tribe buffs are loud primaries; on the paper they're pulled into the site's
+// range: same hue, saturation capped, lightness kept mid so yellow still shows
+export function tribeInk(hex) {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  let h = 0, s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  if (s < 0.1) return l < 0.3 ? "hsl(30 10% 26%)" : "hsl(35 12% 62%)"; // merged black, mergatory grey
+  // yellows lose their hue fastest when muted, so they keep a little more: mustard, not khaki
+  const yellow = h >= 38 && h <= 70;
+  return `hsl(${h.toFixed(0)} ${Math.min(s * 0.68, yellow ? 0.72 : 0.6) * 100}% ${Math.min(Math.max(l, 0.46), yellow ? 0.53 : 0.56) * 100}%)`;
+}
