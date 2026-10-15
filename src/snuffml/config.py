@@ -33,6 +33,7 @@ SURVIVOR2PY_TABLES = [
     "challenge_results",
     "advantage_movement",
     "advantage_details",
+    "tribe_colours",
 ]
 
 TDT_BOXSCORE_URL = "https://truedorktimes.com/s{season}/boxscores/e{episode}.htm"

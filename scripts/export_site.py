@@ -27,43 +27,52 @@ from snuffml.models.sklearn_baseline import (  # noqa: F401
 )
 
 # feature -> (phrase when pushing up, phrase when pushing down)
+# what's true of the player, (above the field, below it). the direction a
+# factor pushes is the bar's job, never the label's: leading the early
+# confessionals reads the same whether it helps or hurts that season.
 FEATURE_LABELS: dict[str, tuple[str, str]] = {
-    "conf_ep": ("big confessional episode", "quiet episode"),
-    "conf_time_ep": ("lots of confessional screen time", "little confessional screen time"),
-    "has_time": ("timing data exists this season", "no timing data this season"),
-    "conf_cum": ("many confessionals so far", "few confessionals so far"),
-    "conf_share_ep": ("large share of this episode", "small share of this episode"),
-    "conf_share_cum": ("large cumulative confessional share", "small cumulative confessional share"),
-    "conf_z_cum": ("well above average airtime", "well below average airtime"),
-    "index_resid_cum": ("camera likes them beyond game events", "camera avoids them given game events"),
-    "premiere_share": ("strong premiere presence", "invisible premiere"),
-    "late_clustering": ("airtime clustering late", "airtime fading late"),
-    "conf_trend": ("rising confessional trend", "falling confessional trend"),
-    "is_female": ("women tend to win with quieter edits", "men tend to need louder edits to win"),
-    "female_x_share_cum": ("her airtime beats the quieter-edit bar", "airtime adjusted for how their gender gets edited"),
-    "new_era_x_share_cum": ("high share in the new era", "low share in the new era"),
-    "zero_any": ("no zero-confessional episodes", "has a zero-confessional episode"),
-    "zero_any_x_new": ("clean sheet in the new era", "zero-confessional episode in the new era - near fatal"),
-    "orig_tribe_over": ("starting tribe got the airtime", "starting tribe got buried"),
-    "early_flag": ("early confessional frontrunner", "not the early frontrunner"),
-    "early_flag_x_new": ("early frontrunner in the new era - historically a curse", "early frontrunner in the new era - historically a curse"),
-    "vfb_cum": ("votes with the majority", "votes against the majority"),
-    "vote_acc_cum": ("high voting accuracy", "low voting accuracy"),
-    "votes_against_cum": ("collects votes at tribal", "rarely receives votes"),
-    "adv_events_cum": ("finds advantages", "no advantage story"),
-    "imm_early_cum": ("early merge immunity wins", "no early merge immunities"),
-    "imm_late_cum": ("late merge immunity wins", "no late merge immunities"),
-    "imm_early_x_old": ("early immunity in the old era - threat signal", "early immunity in the old era - threat signal"),
-    "edgic_available": ("edgic coverage exists", "no edgic coverage"),
-    "cp_share": ("complex-personality edit", "one-note edit"),
-    "cpx_count": ("high-visibility complex episodes", "no big complex episodes"),
-    "ott_count": ("over-the-top episodes - winners rarely have them", "no over-the-top episodes"),
-    "inv_count": ("invisible episodes", "never invisible"),
-    "utr_share": ("under-the-radar edit", "rarely under the radar"),
-    "tone_consistency": ("consistently positive tone", "negative or mixed tone"),
-    "tone_flips": ("tone flip-flops", "steady tone"),
-    "visibility_mean": ("high edgic visibility", "low edgic visibility"),
+    "conf_ep": ("a big confessional episode", "a quiet episode"),
+    "conf_time_ep": ("lots of screen time this episode", "little screen time this episode"),
+    "has_time": ("timing data this season", "no timing data this season"),
+    "conf_cum": ("more confessionals than most", "fewer confessionals than most"),
+    "conf_share_ep": ("a big share of this episode", "a small share of this episode"),
+    "conf_share_cum": ("a big share of the season's confessionals", "a small share of the season's confessionals"),
+    "conf_z_cum": ("airtime well above the cast's", "airtime below the cast's"),
+    "index_resid_cum": ("more airtime than their game explains", "less airtime than their game explains"),
+    "premiere_share": ("a strong premiere", "a quiet premiere"),
+    "late_clustering": ("airtime building late", "airtime fading late"),
+    "conf_trend": ("confessionals rising", "confessionals falling"),
+    "is_female": ("a woman (winning women get quieter edits)", "a man (winning men get louder edits)"),
+    "zero_any": ("went an episode with no confessionals", "never went an episode without a confessional"),
+    "orig_tribe_over": ("their starting tribe got the airtime", "their starting tribe got little airtime"),
+    "early_flag": ("led the confessionals early", "didn't lead the confessionals early"),
+    "vfb_cum": ("votes with the majority more than most", "votes with the majority less than most"),
+    "vote_acc_cum": ("an accurate voter", "often on the wrong side of the vote"),
+    "votes_against_cum": ("more votes against them than most", "fewer votes against them than most"),
+    "adv_events_cum": ("more advantage plays than most", "fewer advantage plays than most"),
+    "imm_early_cum": ("won immunity early after the merge", "no early post-merge immunity"),
+    "imm_late_cum": ("won immunity late in the game", "no late immunity wins"),
+    "edgic_available": ("edgic coverage", "no edgic coverage"),
+    "cp_share": ("often edited as complex", "rarely edited as complex"),
+    "cpx_count": ("more big complex episodes than most", "fewer big complex episodes than most"),
+    "ott_count": ("more over-the-top episodes than most", "fewer over-the-top episodes than most"),
+    "inv_count": ("more invisible episodes than most", "fewer invisible episodes than most"),
+    "utr_share": ("often under the radar", "rarely under the radar"),
+    "tone_consistency": ("a consistently positive tone", "a mixed or negative tone"),
+    "tone_flips": ("a tone that keeps flipping", "a steady tone"),
+    "visibility_mean": ("highly visible", "rarely visible"),
     "visibility_z": ("more visible than the cast", "less visible than the cast"),
+}
+
+# era and gender interactions are the same fact as their base feature, so a
+# row showed twice with clashing labels ("led early" and "didn't lead early").
+# they're folded into the base: one row, the summed push, labelled by the base.
+FOLDED = {
+    "early_flag_x_new": "early_flag",
+    "zero_any_x_new": "zero_any",
+    "imm_early_x_old": "imm_early_cum",
+    "new_era_x_share_cum": "conf_share_cum",
+    "female_x_share_cum": "is_female",
 }
 
 
@@ -116,6 +125,21 @@ def relative_to_field(contrib: pd.DataFrame, rows: pd.DataFrame) -> pd.DataFrame
     keys = rows.loc[contrib.index, ["season", "episode"]]
     contrib = contrib[[c for c in contrib.columns if not c.startswith("era_")]]
     return contrib - contrib.groupby([keys["season"], keys["episode"]]).transform("mean")
+
+
+def fold(rel: pd.DataFrame) -> pd.DataFrame:
+    """Sum each interaction into its base feature. Logits add, so the total is unchanged."""
+    return rel.T.groupby(lambda c: FOLDED.get(c, c)).sum().T
+
+
+def field_levels(rows: pd.DataFrame, cols) -> pd.DataFrame:
+    """+1 where the player's raw value is above the average of everyone alive
+    that episode, -1 below, 0 level. This picks the label, so it describes the
+    player, not which way the model leans."""
+    have = [c for c in cols if c in rows.columns]
+    x = rows[have].astype(float)
+    dev = x - x.groupby([rows["season"], rows["episode"]]).transform("mean")
+    return np.sign(dev.where(dev.abs() > 1e-9, 0.0)).reindex(columns=list(cols), fill_value=0.0)
 
 
 def log_odds_vs_field(rows: pd.DataFrame) -> pd.Series:
@@ -211,12 +235,14 @@ def predict_airing(preds: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return rows, contrib
 
 
-def top_k_why(contrib_row: pd.Series, k: int = 6) -> list[list]:
-    """The k biggest pushes either way, biggest first."""
+def top_k_why(contrib_row: pd.Series, k: int = 6, level: pd.Series | None = None) -> list[list]:
+    """The k biggest pushes either way, biggest first, as [feature, push,
+    level]: level is +1 above the field, -1 below, and picks the label."""
     row = contrib_row[[c for c in contrib_row.index if not c.startswith("era_")]]
     row = row[row.abs() > 1e-4]
     row = row.reindex(row.abs().sort_values(ascending=False).index).head(k)
-    return [[key, round(float(v), 3)] for key, v in row.items()]
+    lv = (lambda key: int(level.get(key, 0))) if level is not None else (lambda key: 0)
+    return [[key, round(float(v), 3), lv(key)] for key, v in row.items()]
 
 
 def top_pick(rows: pd.DataFrame) -> pd.Series:
@@ -357,7 +383,30 @@ def build_index(preds: pd.DataFrame, names: dict[int, str]) -> dict:
     return {"labels": labels, "seasons": seasons}
 
 
-def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dict:
+_TRIBES = None
+
+
+def tribes_at() -> tuple[dict, dict]:
+    """The tribe each castaway ended each episode on (the last stage of the
+    game in that episode, so a mid-episode swap shows), and each season's
+    tribe colours from survivoR. A merged tribe without a colour gets none."""
+    global _TRIBES
+    if _TRIBES is None:
+        try:
+            bm = survivor2py.load_table("boot_mapping", fetch=False).dropna(subset=["episode", "sog_id", "tribe"])
+            last = bm.sort_values("sog_id").groupby(["season", "episode", "castaway_id"])["tribe"].last()
+        except FileNotFoundError:  # no cache (the tests): no tribes
+            last = pd.Series(dtype=object)
+        try:
+            cols = survivor2py.load_table("tribe_colours", fetch=False).dropna(subset=["tribe", "tribe_colour"])
+        except FileNotFoundError:  # an older cache: no colours, so no dots
+            cols = pd.DataFrame(columns=["season", "tribe", "tribe_colour"])
+        colour = {(int(r.season), r.tribe): r.tribe_colour for r in cols.itertuples()}
+        _TRIBES = ({(int(k[0]), int(k[1]), str(k[2])): t for k, t in last.items()}, colour)
+    return _TRIBES
+
+
+def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int, levels: pd.DataFrame | None = None) -> dict:
     g = preds[preds["season"] == season]
     eps = sorted(g["episode"].unique())
     live = season_is_live(g)
@@ -365,6 +414,8 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
     # whoever went home in it would read as still in. the vote history knows.
     just_out = live_notes(season, [int(e) for e in eps]).get("just_out") if live else None
     players = []
+    on, colour = tribes_at()
+    tribes = sorted({t for (ss, _, _), t in on.items() if ss == season and (season, t) in colour})
     for cid, p in g.groupby("castaway_id"):
         p = p.sort_values("episode")
         by_ep = p.set_index("episode")
@@ -374,20 +425,22 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
             if e in by_ep.index:
                 r = by_ep.loc[e, "_row"]
                 probs.append(round(float(by_ep.loc[e, "win_prob"]), 5))
-                top = top_k_why(contrib.loc[r])
+                top = top_k_why(contrib.loc[r], level=levels.loc[r] if levels is not None else None)
                 whys.append(top)
                 # what the shown rows leave out, so the panel always adds up
                 # to the total: the smaller features plus whatever the linear
                 # read misses at the top of the sigmoid
                 tot = float(by_ep.loc[e, "_vs_field"])
                 total.append(round(tot, 3))
-                rest.append(round(tot - sum(v for _, v in top), 3))
+                rest.append(round(tot - sum(v for _, v, _ in top), 3))
             else:
                 probs.append(None)
                 whys.append(None)
                 rest.append(None)
                 total.append(None)
         name = str(p["castaway"].iloc[0])
+        tribe = [tribes.index(on[(season, int(e), str(cid))]) if e in by_ep.index
+                 and on.get((season, int(e), str(cid))) in tribes else None for e in eps]
         players.append(
             {
                 "id": str(cid),
@@ -401,6 +454,7 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
                 "why": whys,
                 "why_rest": rest,
                 "why_total": total,
+                "tribe": tribe,
             }
         )
     players.sort(key=lambda pl: (-(pl["probs"][-1] or 0), pl["name"]))
@@ -412,6 +466,7 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int) -> dic
     }
     if season_is_live(g):
         out["live"] = True
+    out["tribes"] = [{"name": t, "colour": colour[(season, t)]} for t in tribes]
     out["players"] = players
     return out
 
@@ -603,8 +658,9 @@ def main() -> None:
     both_contrib = pd.concat([contrib, live_contrib]) if len(live) else contrib
     both["_vs_field"] = log_odds_vs_field(both)
     by_row = both.set_index("_row")
-    both_contrib = relative_to_field(both_contrib, by_row)
+    both_contrib = fold(relative_to_field(both_contrib, by_row))
     check_why_adds_up(both_contrib, by_row)
+    levels = field_levels(by_row.loc[both_contrib.index], both_contrib.columns)
 
     out = config.PROJECT_ROOT / "docs" / "data"
     (out / "seasons").mkdir(parents=True, exist_ok=True)
@@ -614,7 +670,7 @@ def main() -> None:
 
     dump(build_index(both, season_names()), out / "index.json")
     for s in sorted(both["season"].unique()):
-        dump(build_season(both, both_contrib, int(s)), out / "seasons" / f"s{int(s):02d}.json")
+        dump(build_season(both, both_contrib, int(s), levels), out / "seasons" / f"s{int(s):02d}.json")
     dump(build_insights(preds), out / "insights.json")
     dump(build_track(preds), out / "track.json")
     sanity_check(preds, out, live)

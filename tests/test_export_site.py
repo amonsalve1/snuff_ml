@@ -62,10 +62,10 @@ def _toy_contrib(preds: pd.DataFrame) -> pd.DataFrame:
 def test_top_k_why_excludes_era_and_sorts():
     contrib = _toy_contrib(_toy_preds())
     why = export_site.top_k_why(contrib.iloc[0])
-    keys = [k for k, _ in why]
+    keys = [k for k, *_ in why]
     assert "era_new" not in keys
-    assert why[0] == ["conf_share_cum", 0.5]
-    assert ["ott_count", -0.3] in why
+    assert why[0] == ["conf_share_cum", 0.5, 0]
+    assert ["ott_count", -0.3, 0] in why
 
 
 def test_build_season_shapes():
@@ -145,13 +145,13 @@ def test_labels_cover_model_features(features_df):
     from snuffml.features import build
 
     cols = build.feature_columns(features_df)
-    missing = [c for c in cols if c not in export_site.FEATURE_LABELS]
+    missing = [c for c in cols if export_site.FOLDED.get(c, c) not in export_site.FEATURE_LABELS]
     assert not missing, f"features without site labels: {missing}"
 
 
 def test_top_k_why_orders_by_size_either_sign():
     row = pd.Series({"a": 0.2, "b": -0.9, "c": 0.5, "d": 0.00001, "era_new": 5.0})
-    assert export_site.top_k_why(row) == [["b", -0.9], ["c", 0.5], ["a", 0.2]]
+    assert export_site.top_k_why(row) == [["b", -0.9, 0], ["c", 0.5, 0], ["a", 0.2, 0]]
 
 
 def test_build_season_why_adds_up_to_total():
@@ -164,7 +164,7 @@ def test_build_season_why_adds_up_to_total():
             if why is None:
                 assert rest is None and tot is None
                 continue
-            assert abs(sum(v for _, v in why) + rest - tot) < 0.002
+            assert abs(sum(v for _, v, _ in why) + rest - tot) < 0.002
 
 
 def test_relative_contributions_explain_the_odds():
@@ -249,3 +249,17 @@ def test_frozen_model_refuses_a_changed_file(tmp_path, monkeypatch):
         pass
     else:
         raise AssertionError("a changed model file must be refused")
+
+
+def test_fold_keeps_the_total_and_labels_by_the_player():
+    import pandas as pd
+
+    rel = pd.DataFrame({"early_flag": [0.2, -0.2], "early_flag_x_new": [-0.9, 0.9], "conf_ep": [0.1, -0.1]})
+    folded = export_site.fold(rel)
+    assert "early_flag_x_new" not in folded.columns
+    assert folded.sum(axis=1).round(6).tolist() == rel.sum(axis=1).round(6).tolist()
+    rows = pd.DataFrame({"season": [1, 1], "episode": [4, 4], "early_flag": [1.0, 0.0], "conf_ep": [3.0, 1.0]})
+    lv = export_site.field_levels(rows, folded.columns)
+    # the flag holder is "led early" even though the fold pushes them down
+    why = export_site.top_k_why(folded.iloc[0], level=lv.iloc[0])
+    assert why[0] == ["early_flag", -0.7, 1]
