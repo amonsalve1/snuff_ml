@@ -1,0 +1,6 @@
+version,version_season,season,episode,day,tribe_status,tribe,castaway,vote_event,vote_event_outcome,nullified,tie,voted_out,order,vote_order,castaway_id,voted_out_id,sog_id,challenge_id,vote,vote_id,immunity,split_vote
+US,US51,51,4,,Swapped,Savu,Devin,,,False,False,Jenna,5,1,US0761,US0763,5,,Jenna,US0763,,
+US,US51,51,4,,Swapped,Savu,Jelly,,,False,False,Jenna,5,1,US0756,US0763,5,,Jenna,US0763,,
+US,US51,51,4,,Swapped,Savu,Ori,,,False,False,Jenna,5,1,US0769,US0763,5,,Jenna,US0763,,
+US,US51,51,4,,Swapped,Savu,Alexis,,,False,False,Jenna,5,1,US0753,US0763,5,,Jenna,US0763,,
+US,US51,51,4,,Swapped,Savu,Jenna,,,False,False,Jenna,5,1,US0763,US0763,5,,,,,
