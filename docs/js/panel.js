@@ -192,22 +192,28 @@ export function rankPath(el, { s, i, sel, ranked, onEpisode = () => {} }) {
 
 // everyone still in, best odds first. rows are kept per player and slid into
 // their new place, so stepping an episode shows who passed whom
-let boardRows = null, boardFor = null;
+let boardRows = null, boardFor = null, boardView = "all", boardAt = null;
 export function board(el, { s, i, sel, ranked, onPick = () => {} }) {
   const e = s.episodes[i], al = ranked(s, i);
   // last week's order without last week's boot, so their exit doesn't read as everyone moving up
   const before = i > 0 ? ranked(s, i - 1).filter((p) => p.boot !== s.episodes[i - 1]) : null;
   if (boardFor !== s) {
-    el.innerHTML = `<div class="rp-h"><b id="bd-h"></b><span>click a name to follow them</span></div><div class="bd-key"></div><ol class="bd"></ol>`;
+    el.innerHTML = `<div class="rp-h"><b id="bd-h"></b><span class="bd-modes" role="group" aria-label="how to rank">
+      <button type="button" data-v="all">Everyone</button><button type="button" data-v="tribe">By tribe</button></span></div>
+      <div class="bd-key"></div><ol class="bd"></ol><div class="bt"></div><p class="bd-hint">click a name to follow them</p>`;
+    el.querySelector(".bd-modes").onclick = (ev) => {
+      const b = ev.target.closest("button");
+      if (b) { boardView = b.dataset.v; board(el, { s, i: boardAt.i, sel: boardAt.sel, ranked, onPick }); }
+    };
     boardRows = new Map(s.players.map((p) => {
       const li = document.createElement("li");
-      li.innerHTML = `<button type="button"><span class="r"></span><span class="nm"><span class="tds"><i class="td og"></i><i class="td now"></i></span>${p.name}</span><span class="bar"><i></i></span><span class="pc"></span><span class="mv"></span></button>`;
+      li.innerHTML = `<button type="button"><span class="r"></span><span class="nm"><i class="td"></i>${p.name}</span><span class="bar"><i></i></span><span class="pc"></span><span class="mv"></span></button>`;
       li.querySelector("button").onclick = () => onPick(p);
       return [p, li];
     }));
     boardFor = s;
   }
-  el.querySelector("#bd-h").textContent = `Everyone's rank after episode ${e}`;
+  boardAt = { i, sel };
   // tribe dots, from survivoR's colours; a key for the tribes in play this episode
   // two dots: the tribe they started on, then the one they're on now if a swap
   // or the merge moved them, so who crossed over reads at a glance
@@ -217,8 +223,33 @@ export function board(el, { s, i, sel, ranked, onPick = () => {} }) {
   // one dot each until the first swap; the second appears once anyone has moved
   const twoDots = al.some((p) => startOf(p) && tribeOf(p) !== startOf(p));
   el.querySelector(".bd-key").innerHTML = inPlay.map((t) => `<span><i class="td" style="background:${tribeInk(t.colour)}"></i>${t.name}</span>`).join("")
-    + (twoDots ? `<span class="how">first dot: starting tribe · second: tribe now</span>` : "");
+    + (twoDots ? `<span class="how">left half: starting tribe · right half: tribe now</span>` : "");
   el.querySelector(".bd").classList.toggle("two", twoDots);
+  // by tribe: one column per tribe still split up, ranked inside it. gone at the merge
+  const now = [...new Set(al.map(tribeOf))];
+  const split = now.filter(Boolean).length >= 2;
+  const view = split ? boardView : "all";
+  el.querySelector(".bd-modes").hidden = !split;
+  for (const b of el.querySelectorAll(".bd-modes button")) b.setAttribute("aria-pressed", String(b.dataset.v === view));
+  el.querySelector("#bd-h").textContent = view === "tribe" ? `Rank within each tribe after episode ${e}, % to win` : `Everyone's rank after episode ${e}`;
+  el.querySelector(".bd-key").hidden = view === "tribe";
+  el.querySelector(".bd").hidden = view === "tribe";
+  const bt = el.querySelector(".bt");
+  bt.hidden = view !== "tribe";
+  if (view === "tribe") {
+    const cols = tribes.filter((t) => now.includes(t)).concat(now.includes(undefined) ? [undefined] : []);
+    bt.style.gridTemplateColumns = `repeat(${cols.length}, minmax(0, 1fr))`;
+    bt.innerHTML = cols.map((t) => {
+      const mem = al.filter((p) => tribeOf(p) === t);
+      return `<section><h4>${t ? `<i class="td" style="background:${tribeInk(t.colour)}"></i>${t.name}` : "no tribe"}<span>${mem.length}</span></h4><ol>${mem.map((p) => {
+        const r = 1 + mem.filter((q) => q.probs[i] > p.probs[i]).length;
+        return `<li class="${p === sel ? "sel" : ""} ${p.boot === e ? "out" : ""}"><button type="button" data-id="${p.id}"
+          aria-label="${ord(r)} on ${t ? t.name : "no tribe"}, ${p.name}, ${(p.probs[i] * 100).toFixed(1)}%${p.boot === e ? ", out tonight" : ""}"><span class="r">${r}</span><span class="nm">${p.name}</span><span class="pc">${(p.probs[i] * 100).toFixed(1)}</span></button></li>`;
+      }).join("")}</ol></section>`;
+    }).join("");
+    bt.onclick = (ev) => { const b = ev.target.closest("button"); if (b) onPick(s.players.find((p) => p.id === b.dataset.id)); };
+    return;
+  }
   const ol = el.querySelector(".bd"), top = al.length ? al[0].probs[i] : 1;
   const was = new Map([...boardRows].map(([p, li]) => [p, li.isConnected ? li.getBoundingClientRect().top : null]));
   ol.replaceChildren(...al.map((p) => boardRows.get(p)));
@@ -227,22 +258,22 @@ export function board(el, { s, i, sel, ranked, onPick = () => {} }) {
     const moved = before && before.includes(p) ? 1 + before.filter((q) => q.probs[i - 1] > p.probs[i - 1]).length - r : 0;
     const tied = al.some((q) => q !== p && q.probs[i] === p.probs[i]);
     li.className = `${p === sel ? "sel" : ""} ${p.boot === e ? "out" : ""}`;
-    const t = tribeOf(p), t0 = startOf(p), og = li.querySelector(".td.og"), now = li.querySelector(".td.now");
-    const swapped = t0 && t && t0 !== t;
-    og.style.background = t0 || t ? tribeInk((t0 || t).colour) : "transparent";
-    og.title = t0 || t ? `${swapped ? "started on " : ""}${(t0 || t).name}` : "";
-    // never moved: both dots match. a later swap or the merge replaces the
-    // second one; a tribe survivoR hasn't coloured yet is an empty ring, never
+    // one dot: whole until the first swap, then split, starting tribe on the
+    // left and tribe now on the right. a later swap or the merge repaints the
+    // right half; a tribe survivoR hasn't coloured yet leaves it empty, never
     // the starting colour, which would read as "never moved"
-    now.style.background = t ? tribeInk(t.colour) : "transparent";
-    now.style.boxShadow = t ? "" : t0 ? "inset 0 0 0 1.5px #b3a78f" : "none";
-    now.title = t ? `now on ${t.name}` : t0 ? "tribe not known yet" : "";
+    const t = tribeOf(p), t0 = startOf(p) || t, dot = li.querySelector(".td");
+    const swapped = t0 && t && t0 !== t;
+    const L = t0 ? tribeInk(t0.colour) : "transparent", R = t ? tribeInk(t.colour) : twoDots && t0 ? "transparent" : L;
+    dot.style.background = twoDots ? `linear-gradient(90deg, ${L} 50%, ${R} 50%)` : L;
+    dot.style.boxShadow = t0 ? "" : "none";
+    dot.title = swapped ? `started on ${t0.name}, now ${t.name}` : t ? t.name : t0 ? `started on ${t0.name}, tribe now not known` : "";
     li.querySelector(".r").textContent = r;
     li.querySelector(".bar i").style.width = `${(p.probs[i] / top) * 100}%`;
     li.querySelector(".pc").textContent = `${(p.probs[i] * 100).toFixed(1)}%`;
     const mv = li.querySelector(".mv");
     mv.className = `mv ${p.boot === e ? "" : moved > 0 ? "up" : moved < 0 ? "down" : ""}`;
-    mv.textContent = p.boot === e ? "voted out" : moved > 0 ? `▲${moved}` : moved < 0 ? `▼${-moved}` : "–";
+    mv.textContent = p.boot === e ? "out" : moved > 0 ? `▲${moved}` : moved < 0 ? `▼${-moved}` : "–";
     li.querySelector("button").setAttribute("aria-label", `${tied ? "tied " : ""}${ord(r)}, ${p.name}${swapped ? ` (started on ${t0.name}, now ${t.name})` : t ? ` (${t.name})` : ""}, ${(p.probs[i] * 100).toFixed(1)}%${p.boot === e ? ", out tonight" : moved ? `, ${moved > 0 ? "up" : "down"} ${Math.abs(moved)}` : ""}`);
     li.querySelector("button").setAttribute("aria-pressed", String(p === sel));
     const y = was.get(p);
