@@ -9,7 +9,7 @@
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="preload" href="fonts/nunito-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/dm-mono-500.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="pages.css?v=42">
+<link rel="stylesheet" href="pages.css?v=50">
 <style>
 .intro{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:20px;align-items:center;margin:34px 0 4px;padding:16px 20px;background:#fbf7ee;border:1px solid var(--rule);border-left:4px solid var(--flame);border-radius:4px}
 .intro .ex{font:500 11.5px "DM Mono";letter-spacing:.1em;text-transform:uppercase;color:var(--flame);white-space:nowrap}
@@ -59,13 +59,6 @@
 .cmp .row{grid-template-columns:110px minmax(0,1fr) 54px}.cmp .row b{display:block;grid-column:3;margin:0;justify-self:end}
 .cmp .row.me b{color:var(--flame)}
 /* 4 explain */
-.wf{display:grid;grid-template-columns:minmax(0,1fr) 170px 52px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--rule);font-size:14px}
-.wf .trk{position:relative;height:14px}.wf .seg{position:absolute;top:2px;height:10px;background:var(--flame)}
-.wf.neg .seg{background:var(--sea)}.wf.base .seg{background:#b3a78f}.wf.base{color:var(--muted)}
-.wf .tick{position:absolute;top:-2px;width:3px;height:18px;margin-left:-1px;background:var(--ink)}
-.wf.end .tick{background:var(--flame);width:5px}
-.wf .v{font:500 13px "DM Mono";text-align:right}.wf.start,.wf.end{font-weight:700}.wf.end .v{color:var(--flame)}
-.wf.end{border-bottom:2px solid var(--ink)}.wfall{border-top:2px solid var(--ink)}
 /* right? */
 .right{padding:56px 0 40px;border-bottom:1px solid var(--rule)}
 .right .head{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px;align-items:end}
@@ -108,9 +101,9 @@ details.nerd p{margin:0 0 12px;break-inside:avoid}details.nerd b{color:var(--ink
   Every probability is out of sample: the model never saw the season it's predicting.
   <a href="method.html">How it works</a> · <a href="https://github.com/amonsalve1/snuff_ml">code and data on GitHub</a></p></footer>
 <script type="module">
-import { loadIndex, loadTrack, loadSeason, ranked, heat, slug, whyLabel } from "./js/common.js?v=42";
-import { band, nav } from "./js/band.js?v=42";
-import { GROUPS } from "./js/panel.js?v=42";
+import { loadIndex, loadTrack, loadSeason, ranked, heat, slug, whyLabel } from "./js/common.js?v=50";
+import { band, nav } from "./js/band.js?v=50";
+import { GROUPS, factorChart } from "./js/panel.js?v=50";
 
 const hero = document.getElementById("hero");
 hero.innerHTML = nav("Method") + `<div class="copy"><div class="kicker">Method</div>
@@ -141,20 +134,9 @@ const order = al.slice().sort((a, b) => b.probs[EP] - a.probs[EP]);
 const split = order.map((q) => `<i class="${q === me ? "me" : ""}" style="width:${q.probs[EP] * 100}%" title="${q.name} ${pc(q.probs[EP])}"></i>`).join("");
 let left = 0; for (const q of order) { if (q === me) break; left += q.probs[EP]; }
 
-// 4. her factors, multiplying out
-const rows = me.why[EP].slice(0, 5), rest = me.why_rest[EP] + me.why[EP].slice(5).reduce((a, [, v]) => a + v, 0), total = me.why_total[EP];
-const typical = p / Math.exp(total);
-const steps = [...rows.map(([k, v, lvl]) => ({ k, v, label: whyLabel(index.labels, [k, v, lvl], "Erika") })), { k: "_rest", v: rest, label: "everything else" }];
-let cum = 0; const pts = [0];
-for (const st of steps) { st.a = cum; cum += st.v; st.b = cum; pts.push(cum); }
-const lo = Math.min(...pts), hi = Math.max(...pts), pad = (hi - lo) * 0.08 || 0.5;
-const X = (v) => ((v - (lo - pad)) / (hi - lo + 2 * pad)) * 100;
-const mult = (v) => `×${Math.exp(v).toFixed(2)}`;
-const wf = `<div class="wfall">
-  <div class="wf start"><span>a typical player still in</span><span class="trk"><i class="tick" style="left:${X(0)}%"></i></span><span class="v">${pc(typical)}</span></div>
-  ${steps.map((st) => `<div class="wf ${st.v >= 0 ? "pos" : "neg"} ${GROUPS.baseline.includes(st.k) ? "base" : ""}"><span>${st.label}</span>
-    <span class="trk"><i class="seg" style="left:${X(Math.min(st.a, st.b))}%;width:${Math.max(0.8, Math.abs(X(st.b) - X(st.a)))}%"></i></span><span class="v">${mult(st.v)}</span></div>`).join("")}
-  <div class="wf end"><span>Erika</span><span class="trk"><i class="tick" style="left:${X(total)}%"></i></span><span class="v">${pc(p)}</span></div></div>`;
+// 4. her factors, the same chart the season page draws
+const total = me.why_total[EP];
+const { html: wf, typical } = factorChart({ rows: me.why[EP], rest: me.why_rest[EP], total, p, name: "Erika", labels: index.labels });
 
 // was it right: pool every season by rating band
 const B = ["under 0.5×", "0.5 – 0.8×", "0.8 – 1.25×", "1.25 – 2×", "2 – 3×", "over 3×"];
@@ -212,7 +194,7 @@ document.getElementById("main").innerHTML = `
     <div class="verdict"><div><b>${pc(even)}</b><span>an even split, 1 in ${N}</span></div><div class="hot"><b>${pc(p)}</b><span>Erika's slice</span></div><div><b>${h.toFixed(1)}×</b><span>her odds against an even split</span></div></div></div></section>
 
 <section class="step"><div><div class="n">4</div><h2>It shows its working.</h2>
-  <p>Start from a typical player's odds, then multiply by each thing about Erika's edit that differed from everyone else's. The column lands exactly on her ${pc(p)}.</p>
+  <p>Start from a typical player's odds. Each bar is one thing about Erika's edit that differed from everyone else's: to the right it raised her chances, to the left it lowered them. Put together, they land exactly on her ${pc(p)}.</p>
   <p>Why does a typical player start at <b>${pc(typical)}</b> when an even split is ${pc(even)}? A few favorites hold big slices, so the middle of the pack sits below an even share.</p>
   <p>Anything the whole cast shares cancels out, so every row is about her. The grey row is a background prior the model carries for gender: it's shown, but it says nothing about this episode.</p></div>
   <div class="viz"><div class="cap">Why ${pc(p)}, factor by factor</div>${wf}</div></section>

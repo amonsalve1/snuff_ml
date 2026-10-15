@@ -3,7 +3,7 @@
 // headline didn't already state. phrasing rotates by episode so playing a
 // season through doesn't read the same line twice in a row.
 
-import { place } from "./common.js?v=42";
+import { place } from "./common.js?v=50";
 
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
   "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];

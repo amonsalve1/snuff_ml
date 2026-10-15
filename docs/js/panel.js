@@ -1,5 +1,5 @@
-import { place, whyLabel, tribeInk } from "./common.js?v=42";
-import { countTo, reduce } from "./motion.js?v=42";
+import { place, whyLabel, tribeInk } from "./common.js?v=50";
+import { countTo, reduce } from "./motion.js?v=50";
 
 // the lower half of the season view: a stat strip, the model's track record
 // at this level, and a waterfall from a typical player's odds to this one's.
@@ -54,6 +54,35 @@ function track(tr, season, heat, n) {
 let last = { id: null, bars: new Map(), p: null, rank: null, dv: null, even: null, bar: null };
 const EASE = "cubic-bezier(.22,1,.36,1)";
 
+// why this player's odds differ from a typical player's: one centre line,
+// what raises their chances grows right, what lowers them grows left. lengths
+// are log odds, so doubling and halving are the same length; labels say it in
+// plain percent. shared with the method page so both read the same
+export function factorChart({ rows, rest = 0, total, p, name, labels, k = 5 }) {
+  const top = rows.slice(0, k);
+  const other = rows.slice(k).reduce((a, [, v]) => a + v, 0) + rest;
+  const factors = top.map(([key, v, lvl]) => ({ k: key, v, label: whyLabel(labels, [key, v, lvl], name), g: groupOf(key) }));
+  const typical = p / Math.exp(total);
+  const steps = [...factors.filter((x) => x.v > 0).sort((x, y) => y.v - x.v), ...factors.filter((x) => x.v <= 0).sort((x, y) => x.v - y.v),
+    { k: "_other", v: other, label: "everything else, combined", g: "" }];
+  const span = Math.max(...steps.map((x) => Math.abs(x.v)), 0.05);
+  // the longest bar takes 32% of the track either side, leaving room for its number at the tip
+  const W = (v) => (Math.abs(v) / span) * 32;
+  const effect = (v) => { const m = Math.exp(v); if (Math.abs(m - 1) < 0.005) return "about even"; return m >= 2 ? `${m.toFixed(m >= 10 ? 0 : 1)}× the odds` : `${m >= 1 ? "+" : "−"}${Math.round(Math.abs(m - 1) * 100)}%`; };
+  const row = (st) => {
+    const w = Math.max(0.6, W(st.v)), up = st.v >= 0;
+    const tip = up ? `left:calc(${50 + w}% + 6px)` : `right:calc(${50 + w}% + 6px)`;
+    return `<div class="wf ${up ? "pos" : "neg"}${st.g === "baseline" ? " base" : ""}${st.k === "_other" ? " rest" : ""}" data-k="${st.k}">
+    <span class="lab">${st.label}</span>
+    <span class="trk"><i class="mid"></i><i class="seg" style="left:${up ? 50 : 50 - w}%;width:${w}%"></i><b class="tip" style="${tip}">${effect(st.v)}</b></span></div>`;
+  };
+  const html = `<div class="wfall">
+      <div class="wf-axis"><span></span><span class="trk"><b class="l">← lowers chances</b><b class="r">raises chances →</b></span></div>
+      ${steps.map(row).join("")}</div>
+    <div class="wf-sum"><span>a typical player still in <b>${pct(typical)}</b></span><span class="to">→</span><span>${name} <b class="endv">${pct(p)}</b></span></div>`;
+  return { html, typical, factors };
+}
+
 export function renderPanel(el, { s, i, sel, labels, track: tr, ranked, animate = false }) {
   const eps = s.episodes, alive = ranked(s, i), n = alive.length;
   const out = sel.probs[i] == null;
@@ -76,33 +105,16 @@ export function renderPanel(el, { s, i, sel, labels, track: tr, ranked, animate 
 
   let body = "";
   if (rec) {
-    // waterfall in log space: start at a typical player, end at this one
-    const top = rec.rows.slice(0, 5);
-    const other = rec.rows.slice(5).reduce((a, [, v]) => a + v, 0) + rec.rest + rec.resid;
-    const steps = [...top.map(([k, v, lvl]) => ({ k, v, label: whyLabel(labels, [k, v, lvl], name), g: groupOf(k) })),
-      { k: "_other", v: other, label: "all other factors", g: "" }];
-    const typical = p / Math.exp(rec.total);
-    let cum = 0;
-    const pts = [0];
-    for (const st of steps) { st.a = cum; cum += st.v; st.b = cum; pts.push(cum); }
-    const lo = Math.min(...pts), hi = Math.max(...pts), pad = (hi - lo) * 0.08 || 0.5;
-    const X = (v) => ((v - (lo - pad)) / (hi - lo + 2 * pad)) * 100;
-    const row = (cls, label, chip, bar, val, k) => `<div class="wf ${cls}" data-k="${k}"><span class="lab">${label}${chip}</span><span class="trk">${bar}</span><span class="val">${val}</span></div>`;
+    const { html: chart, typical, factors } = factorChart({ rows: rec.rows, rest: rec.rest + rec.resid, total: rec.total, p, name, labels });
     // the sentence is about the edit, so the baseline prior never headlines it
-    const edit = steps.filter((x) => x.k !== "_other" && x.g !== "baseline");
+    const edit = factors.filter((x) => x.g !== "baseline");
     const ups = edit.filter((x) => x.v > 0).slice(0, 2), dns = edit.filter((x) => x.v < 0).slice(0, 2);
     body = `
       <h3>Why ${pct(p)}, factor by factor</h3>
       <p class="read">${ups.length ? `Working for ${name}: <em>${ups.map((x) => x.label).join("</em> and <em>")}</em>. ` : ""}${dns.length ? `Against: <em class="neg">${dns.map((x) => x.label).join("</em> and <em class=neg>")}</em>.` : ""}</p>
-      <div class="wfall">
-        ${row("start", "a typical player still in", "", `<i class="tick" style="left:${X(0)}%"></i>`, pct(typical), "_start")}
-        ${steps.map((st) => row(`${st.v >= 0 ? "pos" : "neg"}${st.g === "baseline" ? " base" : ""}`, st.label, st.g ? `<small>${st.g}</small>` : "",
-          `<i class="seg" style="left:${X(Math.min(st.a, st.b))}%;width:${Math.max(0.6, X(Math.max(st.a, st.b)) - X(Math.min(st.a, st.b)))}%"></i><i class="join" style="left:${X(st.b)}%"></i>`,
-          mult(st.v), st.k)).join("")}
-        ${row("end", name, "", `<i class="tick" style="left:${X(rec.total)}%"></i>`, `<b class="endv">${pct(p)}</b>`, "_end")}
-      </div>
-      <p class="foot">Each factor is measured against everyone still in, so anything they all share cancels out.
-      Multiply the column and you get from a typical player's odds to ${name}'s.</p>`;
+      ${chart}
+      <p class="foot">Each bar compares ${name} with everyone still in, so anything they all share cancels out.
+      Put every factor together and a typical player's ${pct(typical)} becomes ${name}'s ${pct(p)}.</p>`;
   } else body = `<p class="read">No edit data for ${name} at this point.</p>`;
 
   el.innerHTML = `<h2>The edit on ${name}</h2>
