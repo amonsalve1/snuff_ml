@@ -225,7 +225,7 @@ def test_live_season_marks_latest_boot(monkeypatch):
     preds["_vs_field"] = export_site.log_odds_vs_field(preds)
     preds["_row"] = preds.index
     contrib = pd.DataFrame({"conf_share_cum": 0.0}, index=preds.index)
-    monkeypatch.setattr(export_site, "live_notes", lambda season, eps: {"just_out": "Cara"})
+    monkeypatch.setattr(export_site, "live_notes", lambda season, eps: {"just_out": ["Cara"]})
     out = export_site.build_season(preds, contrib, 51)
     boots = {pl["name"]: pl["boot"] for pl in out["players"]}
     assert boots == {"Alice": None, "Bob": None, "Cara": 2}

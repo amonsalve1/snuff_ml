@@ -49,7 +49,8 @@ FEATURE_LABELS: dict[str, tuple[str, str]] = {
     "vfb_cum": ("votes with the majority more than most", "votes with the majority less than most"),
     "vote_acc_cum": ("an accurate voter", "often on the wrong side of the vote"),
     "votes_against_cum": ("more votes against them than most", "fewer votes against them than most"),
-    "adv_events_cum": ("more advantage plays than most", "fewer advantage plays than most"),
+    # survivoR's advantage_movement rows: found, received, gave and played all count one each
+    "adv_events_cum": ("more advantage moves (finds, gifts, plays) than most", "fewer advantage moves than most"),
     "imm_early_cum": ("won immunity early after the merge", "no early post-merge immunity"),
     "imm_late_cum": ("won immunity late in the game", "no late immunity wins"),
     "edgic_available": ("edgic coverage", "no edgic coverage"),
@@ -322,9 +323,10 @@ def live_notes(season: int, eps: list[int]) -> dict:
     try:
         vh = survivor2py.load_table("vote_history", fetch=False)
         v = vh[(vh["season"] == season) & (vh["episode"] == max(eps))]
-        gone = v["voted_out"].dropna().unique()
-        if len(gone):
-            out["just_out"] = str(gone[0])
+        # a double tribal sends two people home in one episode, so it's a list
+        gone = [str(x) for x in v["voted_out"].dropna().unique()]
+        if gone:
+            out["just_out"] = gone
     except Exception:
         pass
     manual = survivor2py.manual_live_dir() / "confessionals.csv"
@@ -412,7 +414,7 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int, levels
     live = season_is_live(g)
     # in a live season the newest episode is also the last one in the data, so
     # whoever went home in it would read as still in. the vote history knows.
-    just_out = live_notes(season, [int(e) for e in eps]).get("just_out") if live else None
+    just_out = live_notes(season, [int(e) for e in eps]).get("just_out", []) if live else []
     players = []
     on, colour = tribes_at()
     tribes = sorted({t for (ss, _, _), t in on.items() if ss == season and (season, t) in colour})
@@ -449,7 +451,7 @@ def build_season(preds: pd.DataFrame, contrib: pd.DataFrame, season: int, levels
                 # several people can go home inside a finale episode, so being
                 # alive at its start doesn't mean reaching final tribal
                 "ftc": bool(p["made_ftc"].any()) if "made_ftc" in p else None,
-                "boot": boot if name == just_out else None if boot == max(eps) else boot,
+                "boot": boot if name in just_out else None if boot == max(eps) else boot,
                 "probs": probs,
                 "why": whys,
                 "why_rest": rest,

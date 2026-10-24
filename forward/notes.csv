@@ -1,0 +1,3 @@
+episode,note
+4,"logged from a fan confessional tally before survivoR published the episode. The counts matched the official ones exactly; the official release also added advantage and challenge records, which move the site's episode 4 numbers by up to about a point but leave the same top three. The row stays as logged: it is what the frozen model said that week."
+5,"first logged on 2026-10-24 while survivoR's confessional index for S51 was blank, before it was published. survivoR's US51E03 release (commit 07ce1660d8) still had the index for episodes 1-3, so those values were restored and the row was logged again the same day, from the same frozen model: Maggie, Jelly and Kristin became Sharonda, Maggie and Brady."
