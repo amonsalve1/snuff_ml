@@ -186,7 +186,29 @@ def load_table(table: str, *, fetch: bool = True) -> pd.DataFrame:
     for col in _INT_COLUMNS & set(df.columns):
         df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
     df = _merge_manual(table, df)
+    if table == "confessionals":
+        df = _fill_pinned_index(df)
     _validate(table, df)
+    return df
+
+
+def _fill_pinned_index(df: pd.DataFrame) -> pd.DataFrame:
+    """put back confessional index values survivoR has since blanked.
+
+    survivoR published exp_count/index_count for S51 episodes 1-3 in its
+    US51E03 release (commit 07ce1660d8) and dropped them from the next one.
+    data/manual/pinned/confessional_index.csv keeps that release's values and
+    only fills cells that are empty now, so anything survivoR publishes later
+    wins. delete the file once the column is back upstream.
+    """
+    path = config.DATA_DIR / "manual" / "pinned" / "confessional_index.csv"
+    if not path.exists():
+        return df
+    pin = pd.read_csv(path).set_index(["season", "episode", "castaway_id"])
+    key = pd.MultiIndex.from_arrays([pd.to_numeric(df["season"]), pd.to_numeric(df["episode"]), df["castaway_id"].astype(str)])
+    for col in ("exp_count", "index_count"):
+        if col in df.columns:
+            df[col] = df[col].where(df[col].notna(), pin[col].reindex(key).to_numpy())
     return df
 
 

@@ -88,12 +88,14 @@ def add_edit_features(panel: pd.DataFrame, *, fetch: bool = True) -> pd.DataFram
     alive_sd = alive_cum.groupby([df["season"], df["episode"]]).transform("std")
     df["conf_z_cum"] = ((df["conf_cum"] - alive_mu) / alive_sd.where(alive_sd > 0)).fillna(0.0)
 
-    # index_count = survivoR's observed/expected confessional ratio; running mean
-    # of it is basically "camera likes them more than it needs to"
-    df["_index"] = df["index_count"].fillna(1.0)
+    # index_count = survivoR's (observed - expected) / expected confessionals,
+    # centred on 0; running mean of it is basically "camera likes them more than
+    # it needs to". a blank episode doesn't count, and no data at all is 0, the
+    # neutral value. (it used to fill 1.0, above anything a finished season has.)
+    df["_index"] = df["index_count"]
     df["index_resid_cum"] = df.groupby(by_player)["_index"].transform(
         lambda s: s.expanding().mean()
-    )
+    ).fillna(0.0)
 
     premiere = df[df["episode"] == 1][["season", "castaway_id", "conf_share_ep"]].rename(
         columns={"conf_share_ep": "premiere_share"}
